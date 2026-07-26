@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hermes Voice</title>
+<style>
+:root {
+  --bg: #0a0a0b;
+  --fg: #f5f5f0;
+  --muted: #888;
+  --accent: #c4a97d;
+  --accent-dim: #9d8765;
+  --card: rgba(255,255,255,0.04);
+  --border: rgba(255,255,255,0.08);
+  --radius: 12px;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #666;
+    --accent: #8b7355;
+    --accent-dim: #a89476;
+    --card: rgba(0,0,0,0.04);
+    --border: rgba(0,0,0,0.08);
+  }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; font-family: Georgia, serif; background: var(--bg); color: var(--fg); }
+body { display: flex; flex-direction: column; }
+header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; background: var(--card); backdrop-filter: blur(8px); position: sticky; top: 0; z-index: 10; }
+header h1 { margin: 0; font-size: 1.1rem; font-weight: 400; letter-spacing: 0.02em; }
+header .badge { font-size: 0.65rem; font-family: ui-monospace, monospace; color: var(--accent); background: rgba(196,169,125,0.15); padding: 2px 8px; border-radius: 999px; }
+main { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; max-width: 720px; margin: 0 auto; width: 100%; }
+.msg { display: flex; flex-direction: column; gap: 4px; animation: fadeIn 0.25s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.msg.user { align-items: flex-end; }
+.msg.agent { align-items: flex-start; }
+.msg .bubble { max-width: 85%; padding: 12px 16px; border-radius: var(--radius); line-height: 1.55; white-space: pre-wrap; word-wrap: break-word; }
+.msg.user .bubble { background: var(--card); border: 1px solid var(--border); border-bottom-right-radius: 4px; }
+.msg.agent .bubble { background: transparent; color: var(--fg); border-bottom-left-radius: 4px; }
+.msg .meta { font-size: 0.7rem; color: var(--muted); margin: 0 4px; font-family: ui-monospace, monospace; }
+.msg.user .meta { text-align: right; }
+.typing { display: none; align-items: center; gap: 4px; color: var(--muted); font-size: 0.85rem; padding: 4px 12px; }
+.typing span { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 1.2s infinite ease-in-out; }
+.typing span:nth-child(2) { animation-delay: 0.2s; }
+.typing span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes pulse { 0%,80%,100% { transform: scale(0.7); opacity: 0.5; } 40% { transform: scale(1); opacity: 1; } }
+footer { padding: 16px 20px; border-top: 1px solid var(--border); background: var(--card); backdrop-filter: blur(8px); position: sticky; bottom: 0; }
+.input-row { display: flex; gap: 10px; align-items: flex-end; max-width: 720px; margin: 0 auto; }
+#msg-input { flex: 1; background: transparent; border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; color: var(--fg); font-family: inherit; font-size: 1rem; resize: none; min-height: 48px; max-height: 160px; line-height: 1.5; }
+#msg-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(196,169,125,0.15); }
+#msg-input::placeholder { color: var(--muted); }
+button { background: var(--accent); color: #0a0a0b; border: none; border-radius: var(--radius); padding: 12px 20px; font-size: 0.95rem; font-weight: 500; cursor: pointer; transition: background 0.15s, transform 0.05s; font-family: inherit; }
+button:hover:not(:disabled) { background: #d4b88a; }
+button:active:not(:disabled) { transform: scale(0.98); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-icon { width: 48px; height: 48px; padding: 0; display: flex; align-items: center; justify-content: center; }
+.btn-icon svg { width: 22px; height: 22px; }
+#voice-btn.recording { background: #c0392b; animation: recPulse 1s infinite; }
+@keyframes recPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(192,57,43,0.5); } 50% { box-shadow: 0 0 0 10px rgba(192,57,43,0); } }
+#voice-btn.recording svg { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.status-bar { display: flex; gap: 16px; font-size: 0.7rem; color: var(--muted); font-family: ui-monospace, monospace; max-width: 720px; margin: 8px auto 0; }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); margin-top: 4px; flex-shrink: 0; }
+.status-dot.ok { background: #27ae60; }
+.status-dot.err { background: #c0392b; }
+audio { width: 100%; margin-top: 8px; }
+.msg .audio-player { margin-top: 8px; width: 100%; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Hermes</h1>
+  <span class="badge" id="session-badge">—</span>
+</header>
+<main id="chat"></main>
+<footer>
+  <div class="input-row">
+    <textarea id="msg-input" placeholder="Digite ou segure 🎤 para falar..." rows="1"></textarea>
+    <button id="voice-btn" class="btn-icon" title="Segure para gravar" aria-label="Gravar áudio">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+    </button>
+    <button id="send-btn">Enviar</button>
+  </div>
+  <div class="status-bar">
+    <span><span class="status-dot" id="stt-dot"></span> STT: <span id="stt-status">—</span></span>
+    <span><span class="status-dot" id="tts-dot"></span> TTS: <span id="tts-status">—</span></span>
+    <span><span class="status-dot" id="api-dot"></span> API: <span id="api-status">conectando...</span></span>
+  </div>
+</footer>
+<script>
+const API = 'http://127.0.0.1:8420'; // bridge server
+const chat = document.getElementById('chat');
+const input = document.getElementById('msg-input');
+const sendBtn = document.getElementById('send-btn');
+const voiceBtn = document.getElementById('voice-btn');
+const sessionBadge = document.getElementById('session-badge');
+const typing = document.createElement('div');
+typing.className = 'typing';
+typing.innerHTML = '<span></span><span></span><span></span> Pensando...';
+let sessionId = localStorage.getItem('hermes_session_id') || null;
+let awaiting = false;
+let mediaRecorder = null;
+let audioChunks = [];
+let recordingStart = 0;
+
+function setSessionBadge() {
+  sessionBadge.textContent = sessionId ? sessionId.slice(0, 8) : 'nova';
+}
+function addMsg(role, text, audioUrl = null) {
+  const wrap = document.createElement('div');
+  wrap.className = `msg ${role === 'user' ? 'user' : 'agent'}`;
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.textContent = text;
+  wrap.appendChild(bubble);
+  if (audioUrl) {
+    const audio = document.createElement('audio');
+    audio.className = 'audio-player';
+    audio.controls = true;
+    audio.src = API + audioUrl;
+    wrap.appendChild(audio);
+  }
+  chat.appendChild(wrap);
+  chat.scrollTop = chat.scrollHeight;
+}
+function showTyping() {
+  chat.appendChild(typing);
+  chat.scrollTop = chat.scrollHeight;
+}
+function hideTyping() {
+  typing.remove();
+}
+function setUIBusy(busy) {
+  awaiting = busy;
+  sendBtn.disabled = busy;
+  input.disabled = busy;
+  voiceBtn.disabled = busy;
+  if (busy) showTyping(); else hideTyping();
+}
+async function checkHealth() {
+  try {
+    const r = await fetch(API + '/api/health');
+    const j = await r.json();
+    document.getElementById('stt-dot').classList.toggle('ok', j.stt);
+    document.getElementById('stt-status').textContent = j.stt ? 'pronto' : 'indisponível';
+    document.getElementById('tts-dot').classList.toggle('ok', j.tts);
+    document.getElementById('tts-status').textContent = j.tts ? 'pronto' : 'indisponível';
+    document.getElementById('api-dot').classList.add('ok');
+    document.getElementById('api-status').textContent = 'conectado';
+  } catch (e) {
+    document.getElementById('api-dot').classList.add('err');
+    document.getElementById('api-status').textContent = 'offline';
+  }
+}
+async function sendMessage(message, audioBlob = null) {
+  if (!message.trim() && !audioBlob) return;
+  setUIBusy(true);
+  try {
+    let res;
+    if (audioBlob) {
+      const fd = new FormData();
+      fd.append('audio', audioBlob, 'input.webm');
+      if (sessionId) fd.append('session_id', sessionId);
+      res = await fetch(API + '/api/chat', { method: 'POST', body: fd });
+    } else {
+      res = await fetch(API + '/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, session_id: sessionId })
+      });
+    }
+    const data = await res.json();
+    if (data.session_id) {
+      sessionId = data.session_id;
+      localStorage.setItem('hermes_session_id', sessionId);
+      setSessionBadge();
+    }
+    if (audioBlob && data.user_text) addMsg('user', data.user_text);
+    else if (!audioBlob) addMsg('user', message);
+    addMsg('agent', data.text || '(sem resposta)', data.audio_url);
+  } catch (e) {
+    addMsg('agent', `[erro] ${e.message}`);
+  } finally {
+    setUIBusy(false);
+    input.value = '';
+    input.style.height = 'auto';
+  }
+}
+sendBtn.addEventListener('click', () => sendMessage(input.value));
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input.value); }
+});
+input.addEventListener('input', () => {
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+});
+
+// Voice recording (hold to record)
+voiceBtn.addEventListener('mousedown', startRecording);
+voiceBtn.addEventListener('touchstart', e => { e.preventDefault(); startRecording(); }, { passive: false });
+window.addEventListener('mouseup', stopRecording);
+window.addEventListener('touchend', stopRecording);
+
+async function startRecording() {
+  if (awaiting) return;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+    audioChunks = [];
+    mediaRecorder.ondataavailable = e => { if (e.data.size) audioChunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(audioChunks, { type: 'audio/webm;codecs=opus' });
+      stream.getTracks().forEach(t => t.stop());
+      sendMessage('', blob);
+    };
+    mediaRecorder.start();
+    recordingStart = Date.now();
+    voiceBtn.classList.add('recording');
+    voiceBtn.title = 'Solte para enviar';
+  } catch (e) {
+    alert('Microfone não disponível: ' + e.message);
+  }
+}
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    const duration = Date.now() - recordingStart;
+    if (duration > 300) { // minimum 300ms
+      mediaRecorder.stop();
+    } else {
+      mediaRecorder.stop();
+      mediaRecorder.stream.getTracks().forEach(t => t.stop());
+    }
+    voiceBtn.classList.remove('recording');
+    voiceBtn.title = 'Segure para gravar';
+  }
+}
+
+// Init
+setSessionBadge();
+checkHealth();
+setTimeout(checkHealth, 30000); // re-check every 30s
+</script>
+</body>
+</html>

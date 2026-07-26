@@ -1,0 +1,52 @@
+# ──────────────────────────────────────────────────────────────
+# Hermes Desktop — gitignore
+# ──────────────────────────────────────────────────────────────
+
+# ── Rust / Tauri ──
+/src-tauri/target/
+/src-tauri/Cargo.lock
+/src-tauri/.cargo/
+**/*.rs.bk
+
+# ── Tauri generated ──
+**/gen/schemas/
+
+# ── Node / npm ──
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-store/
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ── Runtime logs / cache ──
+*.log
+bridge.log
+frontend.log
+/tmp/hermes-audio/
+
+# ── IDE / Editor ──
+.idea/
+.vscode/
+*.swp
+*.swo
+*.iml
+.DS_Store
+Thumbs.db
+
+# ── OS ──
+.Trash-*
+.directory
