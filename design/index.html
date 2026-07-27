@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hermes Voice — Design Prototypes</title>
+<style>
+:root {
+  --bg: #0a0a0b;
+  --fg: #f5f5f0;
+  --muted: #888;
+  --accent: #c4a97d;
+  --accent-dim: #9d8765;
+  --card: rgba(255,255,255,0.04);
+  --border: rgba(255,255,255,0.08);
+  --radius: 16px;
+  --radius-sm: 10px;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #666;
+    --accent: #8b7355;
+    --accent-dim: #a89476;
+    --card: rgba(0,0,0,0.04);
+    --border: rgba(0,0,0,0.08);
+  }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; font-family: Georgia, serif; background: var(--bg); color: var(--fg); }
+body { display: flex; flex-direction: column; align-items: center; padding: 40px 20px; min-height: 100vh; }
+header { text-align: center; margin-bottom: 40px; }
+header h1 { margin: 0 0 8px; font-size: 2rem; font-weight: 400; letter-spacing: 0.01em; }
+header p { margin: 0; color: var(--muted); font-size: 1.1rem; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; width: 100%; max-width: 900px; }
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px 24px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.card:hover { border-color: var(--accent); transform: translateY(-4px); box-shadow: 0 16px 32px rgba(0,0,0,0.2); }
+.card:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(196,169,125,0.3); }
+.card-icon { width: 56px; height: 56px; border-radius: 12px; background: linear-gradient(135deg, var(--accent), var(--accent-dim)); display: flex; align-items: center; justify-content: center; font-size: 1.8rem; color: #0a0a0b; }
+.card h2 { margin: 0; font-size: 1.2rem; font-weight: 500; }
+.card p { margin: 0; color: var(--muted); font-size: 0.9rem; line-height: 1.5; }
+.card .badge { display: inline-flex; gap: 6px; font-size: 0.7rem; font-family: ui-monospace, monospace; color: var(--accent); background: rgba(196,169,125,0.15); padding: 4px 10px; border-radius: 999px; align-self: flex-start; }
+.features { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.features li { font-size: 0.75rem; color: var(--muted); background: var(--card); border: 1px solid var(--border); padding: 4px 10px; border-radius: 999px; }
+footer { margin-top: 40px; text-align: center; color: var(--muted); font-size: 0.85rem; }
+footer a { color: var(--accent); text-decoration: none; }
+footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Hermes Voice — Protótipos de Design</h1>
+  <p>3 telas prioritárias para validação antes do RFT</p>
+</header>
+
+<div class="grid">
+  <a class="card" href="01-settings-modal.html" target="_blank">
+    <div class="card-icon">⚙️</div>
+    <h2>Settings Modal</h2>
+    <p>Configurações completas: voz TTS (7 vozes Edge + prévia), modelo Whisper (5 opções), idioma STT, teste de microfone com visualizador em tempo real, toggles gerais, zona de perigo.</p>
+    <span class="badge">JÁ CRIADO</span>
+    <ul class="features">
+      <li>7 vozes TTS + preview</li>
+      <li>5 modelos Whisper</li>
+      <li>Mic test visualizer</li>
+      <li>localStorage persist</li>
+      <li>Responsivo</li>
+    </ul>
+  </a>
+
+  <a class="card" href="02-session-history-sidebar.html" target="_blank">
+    <div class="card-icon">📜</div>
+    <h2>Session History Sidebar</h2>
+    <p>Histórico de sessões com busca tempo real, preview da conversa, timestamp relativo, contagem de mensagens. Ações: Retomar / Excluir (modal confirm). Nova sessão. Mobile: drawer slide-in.</p>
+    <span class="badge">JÁ CRIADO</span>
+    <ul class="features">
+      <li>Busca instantânea</li>
+      <li>Retomar sessão</li>
+      <li>Excluir c/ confirm</li>
+      <li>Drawer mobile</li>
+      <li>Integração chat</li>
+    </ul>
+  </a>
+
+  <a class="card" href="03-onboarding-first-run.html" target="_blank">
+    <div class="card-icon">🚀</div>
+    <h2>Onboarding First-Run</h2>
+    <p>Fluxo 4 passos: Boas-vindas → Permissão microfone (status visual) → Seleção voz TTS (5 vozes + preview) → Teste microfone (gravação real + visualizador barras) → Resumo + flag localStorage.</p>
+    <span class="badge">JÁ CRIADO</span>
+    <ul class="features">
+      <li>4 passos guiados</li>
+      <li>Permissão mic real</li>
+      <li>5 vozes + preview</li>
+      <li>Gravação webm/opus</li>
+      <li>Flag onboardingComplete</li>
+    </ul>
+  </a>
+</div>
+
+<footer>
+  Abre cada link em nova aba (<kbd>target="_blank"</kbd>).<br>
+  Após validar, marque as tasks como <code>done</code> no Kanban:<br>
+  <code>t_3fd569a1</code> · <code>t_ff408e24</code> · <code>t_8c699407</code>
+</footer>
+</body>
+</html>

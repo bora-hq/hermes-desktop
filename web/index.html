@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' http://127.0.0.1:8420; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://127.0.0.1:8420 ws://127.0.0.1:8420; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
 <title>Hermes Voice</title>
 <style>
 :root {
@@ -55,6 +56,7 @@ footer { padding: 16px 20px; border-top: 1px solid var(--border); background: va
 button { background: var(--accent); color: #0a0a0b; border: none; border-radius: var(--radius); padding: 12px 20px; font-size: 0.95rem; font-weight: 500; cursor: pointer; transition: background 0.15s, transform 0.05s; font-family: inherit; }
 button:hover:not(:disabled) { background: #d4b88a; }
 button:active:not(:disabled) { transform: scale(0.98); }
+button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-icon { width: 48px; height: 48px; padding: 0; display: flex; align-items: center; justify-content: center; }
 .btn-icon svg { width: 22px; height: 22px; }
@@ -68,12 +70,780 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .status-dot.err { background: #c0392b; }
 audio { width: 100%; margin-top: 8px; }
 .msg .audio-player { margin-top: 8px; width: 100%; }
+
+/* Design Button */
+.design-btn {
+  background: transparent; border: none; color: var(--fg);
+  width: 40px; height: 40px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: background 0.15s, color 0.15s;
+}
+.design-btn:hover { background: var(--card); color: var(--accent); }
+.design-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,140,0,0.2); }
+
+/* Design Canvas Modal */
+.design-canvas-modal {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1100;
+  animation: fadeIn 0.2s ease;
+}
+.design-canvas-modal.hidden { display: none; }
+.design-canvas-container {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+  width: 95vw; max-width: 1400px;
+  height: 90vh; max-height: 900px;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  animation: slideUp 0.3s ease;
+}
+.design-canvas-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface, var(--card));
+}
+.design-canvas-header h2 { margin: 0; font-size: 1rem; font-weight: 500; }
+.design-canvas-close {
+  background: transparent; border: none; color: var(--muted);
+  width: 36px; height: 36px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: background 0.15s, color 0.15s;
+}
+.design-canvas-close:hover { background: var(--border); color: var(--fg); }
+.design-canvas-close:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,140,0,0.2); }
+.design-canvas-iframe {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: white;
+}
+
+/* Settings Modal Styles */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.modal {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  animation: slideUp 0.25s ease;
+}
+@keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-header h1 { margin: 0; font-size: 1.1rem; font-weight: 400; letter-spacing: 0.02em; }
+.modal-close {
+  background: transparent; border: none; color: var(--muted);
+  width: 36px; height: 36px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: background 0.15s, color 0.15s;
+}
+.modal-close:hover { background: var(--card); color: var(--fg); }
+.modal-close:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,140,0,0.2); }
+
+.modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-footer {
+  display: flex; justify-content: flex-end; gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  background: var(--card);
+}
+
+/* Sections */
+.settings-section { margin-bottom: 28px; }
+.settings-section:last-child { margin-bottom: 0; }
+.section-title {
+  font-size: 0.75rem; font-family: ui-monospace, monospace;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--muted); margin: 0 0 16px;
+}
+
+/* Form */
+.field { margin-bottom: 16px; }
+.field-label {
+  display: block; font-size: 0.9rem; margin-bottom: 6px; color: var(--fg);
+}
+.field-hint { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+
+.select, .input {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 0.95rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.select:focus, .input:focus {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,140,0,0.15);
+}
+.select option { background: var(--bg); color: var(--fg); }
+
+/* Toggle */
+.toggle-row { display: flex; align-items: center; justify-content: space-between; }
+.toggle-label { display: flex; flex-direction: column; gap: 2px; }
+.toggle-title { font-weight: 500; }
+.toggle-desc { font-size: 0.8rem; color: var(--muted); }
+
+.toggle {
+  position: relative; width: 48px; height: 28px;
+  background: var(--border); border-radius: 999px;
+  border: none; cursor: pointer;
+  transition: background 0.2s;
+}
+.toggle:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,140,0,0.2); }
+.toggle.on { background: var(--accent); }
+.toggle::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 24px; height: 24px; background: var(--fg);
+  border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  transition: transform 0.2s ease;
+}
+.toggle.on::after { transform: translateX(20px); }
+
+/* Voice Preview */
+.voice-preview {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px; background: var(--card); border: 1px solid var(--border);
+  border-radius: 8px; margin-top: 8px;
+}
+.voice-preview-btn {
+  background: var(--accent); color: #0a0a0b; border: none;
+  border-radius: 8px; padding: 10px 16px;
+  font-family: inherit; font-size: 0.9rem; font-weight: 500;
+  cursor: pointer; transition: background 0.15s, transform 0.05s;
+}
+.voice-preview-btn:hover { background: #e67e22; }
+.voice-preview-btn:active { transform: scale(0.98); }
+.voice-preview-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,140,0,0.2); }
+.voice-preview-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.voice-preview-status { font-size: 0.8rem; color: var(--muted); }
+
+/* Mic Test */
+.mic-test {
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 16px; background: var(--card); border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.mic-test-header { display: flex; align-items: center; justify-content: space-between; }
+.mic-level {
+  flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;
+  margin: 0 16px; position: relative;
+}
+.mic-level-bar {
+  height: 100%; width: 0%; background: var(--accent);
+  border-radius: 4px; transition: width 0.05s linear;
+}
+.mic-test-btn {
+  background: var(--accent); color: #0a0a0b; border: none;
+  border-radius: 8px; padding: 12px 20px;
+  font-family: inherit; font-size: 0.95rem; font-weight: 500;
+  cursor: pointer; transition: background 0.15s, transform 0.05s;
+  display: flex; align-items: center; gap: 8px;
+}
+.mic-test-btn:hover { background: #e67e22; }
+.mic-test-btn:active { transform: scale(0.98); }
+.mic-test-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,140,0,0.2); }
+.mic-test-btn.recording { background: #c0392b; animation: recPulse 1s infinite; }
+@keyframes recPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(192,57,43,0.5); } 50% { box-shadow: 0 0 0 10px rgba(192,57,43,0); } }
+.mic-test-result { font-size: 0.85rem; color: var(--muted); min-height: 1.2em; }
+.mic-test-result.ok { color: #22c55e; }
+.mic-test-result.err { color: #ef4444; }
+
+/* Buttons */
+.btn {
+  background: var(--accent); color: #0a0a0b; border: none;
+  border-radius: 8px; padding: 12px 20px;
+  font-family: inherit; font-size: 0.95rem; font-weight: 500;
+  cursor: pointer; transition: background 0.15s, transform 0.05s;
+}
+.btn:hover { background: #e67e22; }
+.btn:active { transform: scale(0.98); }
+.btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,140,0,0.2); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-secondary { background: transparent; color: var(--fg); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--card); border-color: var(--accent); }
+.btn-danger { background: transparent; color: #ef4444; border: 1px solid #ef4444; }
+.btn-danger:hover { background: rgba(239,68,68,0.1); }
+
+/* Danger Zone */
+.danger-zone {
+  border-top: 2px solid #ef4444;
+  padding-top: 20px;
+  margin-top: 12px;
+}
+.danger-zone .section-title { color: #ef4444; }
+.danger-zone-content { display: flex; flex-direction: column; gap: 16px; }
+
+/* Responsive */
+@media (max-width: 480px) {
+  .modal { max-height: 100vh; border-radius: 0; }
+  .modal-body { padding: 16px; }
+  .modal-footer { flex-direction: column-reverse; }
+  .btn { width: 100%; }
+}
+
+/* Skip links */
+.skip-link {
+  display: block; text-align: center; margin-top: 16px;
+  color: var(--muted); font-size: 0.85rem; text-decoration: none;
+}
+.skip-link:hover { color: var(--accent); }
+.skip-link:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,140,0,0.2); border-radius: 4px; }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* Presence Indicators in Sidebar */
+.session-collaborators {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+  min-height: 20px;
+}
+.collaborator-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #030712;
+  border: 2px solid var(--bg);
+  margin-left: -8px;
+  cursor: default;
+  transition: transform 0.15s;
+  position: relative;
+}
+.collaborator-avatar:first-child {
+  margin-left: 0;
+}
+.collaborator-avatar:hover {
+  transform: scale(1.15);
+  z-index: 10;
+}
+.collaborator-avatar .status-dot {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 2px solid var(--bg);
+}
+.collaborator-avatar .status-dot.online { background: #22c55e; }
+.collaborator-avatar .status-dot.away { background: #f59e0b; }
+.collaborator-avatar .status-dot.offline { background: var(--muted); }
+
+/* Comment Threads in Session History */
+.session-comments {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  display: none;
+}
+.session-comments.open {
+  display: block;
+  animation: slideDown 0.2s ease;
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+.comment-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.comment-thread-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.7rem;
+  color: var(--muted);
+  font-family: ui-monospace, monospace;
+}
+.comment-thread-toggle {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+.comment-thread-toggle:hover {
+  color: var(--fg);
+  background: var(--border);
+}
+.comment-count {
+  font-weight: 600;
+  color: var(--accent);
+}
+.comment-thread.resolved .comment-count {
+  color: #22c55e;
+}
+.comment-thread.resolved .comment-thread-toggle {
+  color: #22c55e;
+}
+.comment-bubble {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.comment-bubble-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #030712;
+  flex-shrink: 0;
+}
+.comment-bubble-content {
+  flex: 1;
+  min-width: 0;
+}
+.comment-bubble-author {
+  font-weight: 600;
+  font-size: 0.7rem;
+  margin-bottom: 2px;
+}
+.comment-bubble-text {
+  color: var(--fg);
+  word-wrap: break-word;
+}
+.comment-bubble-time {
+  font-size: 0.65rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.comment-input-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.comment-input {
+  flex: 1;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 0.8rem;
+  min-height: 36px;
+  max-height: 100px;
+  resize: vertical;
+}
+.comment-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(255,140,0,0.2);
+}
+.comment-send-btn {
+  background: var(--accent);
+  color: #0a0a0b;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.05s;
+  align-self: flex-end;
+}
+.comment-send-btn:hover {
+  background: #d4b88a;
+}
+.comment-send-btn:active {
+  transform: scale(0.98);
+}
+
+/* Canvas snapshot in chat */
+.msg .canvas-snapshot {
+  margin-top: 8px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+.msg .canvas-snapshot-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-family: ui-monospace, monospace;
+}
+.msg .canvas-snapshot-canvas {
+  width: 100%;
+  max-height: 300px;
+  background: white;
+  display: block;
+}
+.msg .canvas-snapshot-actions {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+}
+.msg .canvas-snapshot-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.msg .canvas-snapshot-btn:hover {
+  border-color: var(--accent);
+  background: var(--card);
+}
+.msg .canvas-snapshot-btn.primary {
+  background: var(--accent);
+  color: #0a0a0b;
+  border-color: var(--accent);
+}
+.msg .canvas-snapshot-btn.primary:hover {
+  background: #d4b88a;
+}
+
+/* Canvas sync button in canvas modal */
+.design-canvas-sync-btn {
+  background: var(--accent);
+  color: #0a0a0b;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.15s, transform 0.05s;
+}
+.design-canvas-sync-btn:hover {
+  background: #d4b88a;
+}
+.design-canvas-sync-btn:active {
+  transform: scale(0.98);
+}
+.design-canvas-sync-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255,140,0,0.2);
+}
+.design-canvas-sync-btn.syncing {
+  background: #f59e0b;
+  animation: pulse 1s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Comment indicator on session item */
+.session-comment-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.65rem;
+  color: var(--muted);
+  font-family: ui-monospace, monospace;
+}
+.session-comment-indicator.has-comments {
+  color: var(--accent);
+}
+.session-comment-indicator.has-comments svg {
+  color: var(--accent);
+}
+
+/* Session Sidebar Styles */
+.sidebar {
+  width: 380px;
+  max-width: 100%;
+  border-left: 1px solid var(--border);
+  background: var(--card);
+  backdrop-filter: blur(8px);
+  display: flex; flex-direction: column;
+  position: relative;
+  animation: slideIn 0.3s ease;
+}
+@keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: none; } }
+
+.sidebar-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.sidebar-header h2 { margin: 0; font-size: 0.95rem; font-weight: 500; }
+.sidebar-close { display: none; background: transparent; border: none; color: var(--muted); width: 32px; height: 32px; border-radius: 8px; cursor: pointer; }
+.sidebar-close:hover { background: var(--border); color: var(--fg); }
+
+.sidebar-search { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.search-input { width: 100%; background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--fg); font-family: inherit; font-size: 0.9rem; }
+.search-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,140,0,0.2); }
+.search-input::placeholder { color: var(--muted); }
+
+.session-list { flex: 1; overflow-y: auto; padding: 8px; }
+.session-item {
+  background: transparent; border: none; border-radius: 8px;
+  padding: 12px; width: 100%; text-align: left; cursor: pointer;
+  transition: background 0.15s; display: flex; flex-direction: column; gap: 6px;
+}
+.session-item:hover { background: var(--border); }
+.session-item:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,140,0,0.2); }
+.session-item.active { background: rgba(255,140,0,0.1); border: 1px solid var(--accent); }
+.session-item-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.session-title { font-weight: 500; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.session-time { font-size: 0.7rem; color: var(--muted); font-family: ui-monospace, monospace; white-space: nowrap; flex-shrink: 0; }
+.session-preview { font-size: 0.8rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.session-meta { display: flex; align-items: center; gap: 8px; font-size: 0.65rem; color: var(--muted); font-family: ui-monospace, monospace; }
+.session-actions { display: flex; gap: 4px; margin-top: 4px; opacity: 0; transition: opacity 0.15s; }
+.session-item:hover .session-actions { opacity: 1; }
+.session-action-btn {
+  background: transparent; border: none; color: var(--muted); padding: 6px 8px;
+  border-radius: 6px; cursor: pointer; font-size: 0.7rem; font-family: inherit;
+  transition: color 0.15s, background 0.15s;
+}
+.session-action-btn:hover { color: var(--fg); background: var(--border); }
+.session-action-btn.delete:hover { color: #ef4444; background: rgba(239,68,68,0.1); }
+
+.empty-state { padding: 32px 16px; text-align: center; color: var(--muted); }
+.empty-state svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.5; }
+.empty-state p { margin: 0 0 8px; font-size: 0.9rem; }
+.empty-state small { font-size: 0.75rem; }
+
+.sidebar-footer { padding: 12px 16px; border-top: 1px solid var(--border); }
+.new-session-btn { width: 100%; }
+
+/* Mobile drawer */
+@media (max-width: 768px) {
+  .sidebar { position: fixed; right: 0; top: 0; bottom: 0; z-index: 100; transform: translateX(100%); transition: transform 0.3s ease; box-shadow: 0 12px 32px rgba(0,0,0,0.4); }
+  .sidebar.open { transform: translateX(0); }
+  .sidebar-close { display: flex; align-items: center; justify-content: center; }
+  .sidebar-toggle { display: flex; }
+  .sidebar-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 99; opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s; }
+  .sidebar-backdrop.open { opacity: 1; visibility: visible; }
+  .app { flex-direction: column; }
+}
+
+/* Confirm Delete Modal */
+.confirm-modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
+  display: none; align-items: center; justify-content: center; z-index: 2000;
+}
+.confirm-modal-backdrop.open { display: flex; animation: fadeIn 0.2s ease; }
+.confirm-modal {
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.4); width: 100%; max-width: 400px; padding: 24px;
+  animation: slideUp 0.25s ease;
+}
+.confirm-modal h3 { margin: 0 0 8px; font-size: 1rem; }
+.confirm-modal p { margin: 0 0 20px; color: var(--muted); font-size: 0.9rem; }
+.confirm-modal-actions { display: flex; justify-content: flex-end; gap: 12px; }
+
+/* ── Onboarding First-Run Modal ── */
+.onboarding-backdrop { z-index: 3000; }
+.onboarding-modal {
+  width: 100%; max-width: 900px; max-height: 90vh;
+  overflow: hidden; display: flex; flex-direction: column;
+  background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+  box-shadow: 0 20px 48px rgba(0,0,0,0.5);
+}
+.progress-bar { position: relative; height: 3px; background: var(--border); }
+.progress-bar-fill { height: 100%; width: 0%; background: var(--accent); border-radius: 0 3px 3px 0; transition: width 0.4s ease; }
+
+.onboarding-shell { flex: 1; display: grid; grid-template-columns: 1fr; max-width: 100%; padding: 60px 24px 40px; gap: 40px; overflow-y: auto; }
+@media (min-width: 720px) { .onboarding-shell { grid-template-columns: 1.2fr 1fr; align-items: start; padding: 80px 40px 60px; gap: 60px; } }
+
+.onboarding-content { display: flex; flex-direction: column; gap: 32px; }
+.step { display: none; }
+.step.active { display: flex; flex-direction: column; gap: 24px; animation: fadeIn 0.4s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+.step-header { display: flex; align-items: flex-start; gap: 16px; }
+.step-number { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; background: var(--accent); color: #030712; font-family: ui-monospace, monospace; font-size: 1rem; font-weight: 600; }
+.step-titles { flex: 1; }
+.step-title { margin: 0 0 4px; font-size: 1.75rem; font-weight: 400; letter-spacing: 0.01em; line-height: 1.2; }
+.step-subtitle { margin: 0; color: var(--muted); font-size: 1.05rem; line-height: 1.5; }
+
+/* Step 1: Welcome - asymmetric layout */
+.welcome-grid { display: grid; grid-template-columns: 1fr; gap: 24px; margin-top: 8px; }
+@media (min-width: 720px) { .welcome-grid { grid-template-columns: 1.5fr 1fr; align-items: start; } }
+.welcome-copy { display: flex; flex-direction: column; gap: 20px; }
+.value-props { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 14px; }
+.value-prop { display: flex; align-items: flex-start; gap: 14px; padding: 16px 18px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; transition: border-color 0.2s, background 0.2s; }
+.value-prop:hover { border-color: #cc7000; background: rgba(196,169,125,0.04); }
+.value-prop-icon { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, var(--accent), #cc7000); color: #030712; font-size: 1.1rem; }
+.value-prop-text { display: flex; flex-direction: column; gap: 2px; }
+.value-prop-label { font-weight: 500; font-size: 1rem; }
+.value-prop-desc { font-size: 0.85rem; color: var(--muted); }
+
+.welcome-illustration { aspect-ratio: 1; max-width: 280px; margin: 0 auto; background: radial-gradient(ellipse at center, rgba(196,169,125,0.12) 0%, transparent 70%), var(--border); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 4rem; animation: float 4s ease-in-out infinite; }
+@keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+
+/* Step 2: Permissions - left-aligned list */
+.perm-list { display: flex; flex-direction: column; gap: 14px; margin-top: 8px; }
+.perm-item { display: flex; align-items: flex-start; gap: 14px; padding: 16px 18px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; transition: border-color 0.2s, background 0.2s; }
+.perm-item.granted { border-color: #22c55e; background: rgba(39,174,96,0.06); }
+.perm-item.pending { border-color: #f59e0b; background: rgba(243,156,18,0.06); }
+.perm-icon { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 12px; background: var(--border); color: var(--muted); font-size: 1.2rem; transition: background 0.2s, color 0.2s; }
+.perm-item.granted .perm-icon { background: #22c55e; color: #030712; }
+.perm-item.pending .perm-icon { background: #f59e0b; color: #030712; animation: spin 1.2s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.perm-text { flex: 1; min-width: 0; }
+.perm-title { font-weight: 500; margin-bottom: 2px; }
+.perm-desc { font-size: 0.85rem; color: var(--muted); }
+.perm-note { font-size: 0.85rem; color: var(--muted); margin-top: 16px; text-align: left; }
+
+/* Step 3: Voice Select - radio cards, left aligned */
+.voice-options { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+.voice-option { display: flex; align-items: center; gap: 14px; padding: 16px 18px; background: transparent; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; transition: border-color 0.15s, background 0.15s, box-shadow 0.15s; }
+.voice-option:hover { border-color: #cc7000; background: var(--card); }
+.voice-option:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,140,0,0.2); }
+.voice-option.selected { border-color: var(--accent); background: rgba(196,169,125,0.08); box-shadow: inset 0 0 0 1px var(--accent); }
+.voice-option input { position: absolute; opacity: 0; pointer-events: none; }
+.voice-avatar { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), #cc7000); color: #030712; font-weight: 600; font-size: 1.1rem; }
+.voice-info { flex: 1; min-width: 0; }
+.voice-name { font-weight: 500; font-size: 1rem; }
+.voice-lang { font-size: 0.8rem; color: var(--muted); font-family: ui-monospace, monospace; }
+.voice-preview-btn { flex-shrink: 0; background: transparent; border: 1px solid var(--border); color: var(--fg); padding: 8px 14px; border-radius: 10px; font-size: 0.8rem; font-family: inherit; cursor: pointer; transition: border-color 0.15s; }
+.voice-preview-btn:hover { border-color: var(--accent); }
+.voice-preview-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,140,0,0.2); }
+.voice-note { font-size: 0.85rem; color: var(--muted); margin-top: 16px; }
+
+/* Step 4: Mic Test - centered is OK for Command/Inspect moment */
+.mic-test-area { display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 32px; background: var(--card); border: 1px solid var(--border); border-radius: 16px; margin-top: 8px; }
+.mic-visualizer { width: 100%; max-width: 320px; height: 70px; display: flex; align-items: flex-end; justify-content: center; gap: 5px; }
+.mic-bar { flex: 1; max-width: 8px; background: var(--accent); border-radius: 4px 4px 0 0; height: 15%; min-height: 5px; transition: height 0.05s linear; transform-origin: bottom; }
+.mic-btn { width: 96px; height: 96px; border-radius: 50%; background: var(--accent); color: #030712; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s, background 0.15s; box-shadow: 0 12px 32px rgba(255,140,0,0.35); }
+.mic-btn:hover { transform: scale(1.06); box-shadow: 0 16px 40px rgba(255,140,0,0.45); }
+.mic-btn:active { transform: scale(0.95); }
+.mic-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,140,0,0.2); }
+.mic-btn.recording { background: #ef4444; animation: recPulse 1.2s infinite; box-shadow: 0 12px 32px rgba(239,68,68,0.35); }
+@keyframes recPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5), 0 12px 32px rgba(239,68,68,0.35); } 50% { box-shadow: 0 0 0 18px rgba(239,68,68,0), 0 12px 32px rgba(239,68,68,0.35); } }
+.mic-btn svg { width: 32px; height: 32px; }
+.mic-status { font-size: 1rem; color: var(--muted); min-height: 1.4em; text-align: center; max-width: 320px; }
+.mic-status.recording { color: #ef4444; font-weight: 500; }
+.mic-status.success { color: #22c55e; }
+.mic-status.error { color: #ef4444; }
+.mic-hint { font-size: 0.85rem; color: var(--muted); text-align: center; margin-top: 8px; }
+
+/* Step 5: Complete - asymmetric */
+.completion-grid { display: grid; grid-template-columns: 1fr; gap: 24px; margin-top: 8px; }
+@media (min-width: 720px) { .completion-grid { grid-template-columns: auto 1fr; align-items: start; } }
+.completion-icon { width: 88px; height: 88px; border-radius: 50%; background: #22c55e; color: #030712; display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 2.8rem; animation: popIn 0.5s ease; justify-self: center; }
+@media (min-width: 720px) { .completion-icon { margin: 0; justify-self: center; } }
+@keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
+.completion-title { margin: 0 0 8px; font-size: 1.75rem; font-weight: 400; text-align: center; }
+@media (min-width: 720px) { .completion-title { text-align: left; } }
+.completion-text { margin: 0 0 24px; color: var(--muted); line-height: 1.6; text-align: center; }
+@media (min-width: 720px) { .completion-text { text-align: left; } }
+.completion-highlights { display: flex; flex-direction: column; gap: 14px; max-width: 360px; margin: 0 auto; }
+@media (min-width: 720px) { .completion-highlights { margin: 0; } }
+.highlight { display: flex; align-items: flex-start; gap: 12px; font-size: 0.95rem; }
+.highlight-dot { flex-shrink: 0; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); margin-top: 5px; animation: dotPulse 1.8s ease-in-out infinite; }
+.highlight:nth-child(1) .highlight-dot { animation-delay: 0s; }
+.highlight:nth-child(2) .highlight-dot { animation-delay: 0.25s; }
+.highlight:nth-child(3) .highlight-dot { animation-delay: 0.5s; }
+@keyframes dotPulse { 0%,100% { opacity: 0.5; transform: scale(1); } 50% { opacity: 1; transform: scale(1.25); } }
+
+/* Buttons - bottom aligned in left column */
+.btn-row { display: flex; gap: 14px; justify-content: flex-start; margin-top: 24px; flex-wrap: wrap; }
+@media (min-width: 720px) { .btn-row { justify-content: flex-start; } }
+.btn { background: var(--accent); color: #030712; border: none; border-radius: 10px; padding: 16px 32px; font-family: inherit; font-size: 1.05rem; font-weight: 500; cursor: pointer; transition: background 0.15s, transform 0.05s, box-shadow 0.15s; min-width: 160px; }
+.btn:hover { background: #d4b88a; }
+.btn:active { transform: scale(0.98); }
+.btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,140,0,0.2); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-secondary { background: transparent; color: var(--fg); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--card); border-color: var(--accent); }
+
+/* Skip links - bottom left */
+.skip-link { display: inline-block; margin-top: 32px; color: var(--muted); font-size: 0.85rem; text-decoration: none; align-self: flex-start; }
+.skip-link:hover { color: var(--accent); }
+.skip-link:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,140,0,0.2); border-radius: 4px; }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
 </style>
 </head>
 <body>
 <header>
   <h1>Hermes</h1>
   <span class="badge" id="session-badge">—</span>
+  <button class="design-btn" id="designBtn" aria-label="Design Canvas" title="Design Canvas">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><path d="M3 9h18"></path><path d="M9 21V9"></path></svg>
+    </button>
+    <button class="settings-btn" id="settingsBtn" aria-label="Configurações" title="Configurações">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+    </button>
+    <button class="sidebar-toggle" id="sidebarToggle" aria-label="Histórico de sessões" aria-expanded="false">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="12" x2="23" y2="12"></line><line x1="1" y1="6" x2="23" y2="6"></line><line x1="1" y1="18" x2="23" y2="18"></line></svg>
+  </button>
 </header>
 <main id="chat"></main>
 <footer>
@@ -84,12 +854,337 @@ audio { width: 100%; margin-top: 8px; }
     </button>
     <button id="send-btn">Enviar</button>
   </div>
-  <div class="status-bar">
+</footer>
+
+<!-- Session History Sidebar -->
+<aside class="sidebar" id="sessionSidebar" aria-label="Histórico de sessões">
+  <div class="sidebar-header">
+    <h2>Histórico</h2>
+    <button class="sidebar-close" id="sidebarClose" aria-label="Fechar histórico">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+    </button>
+  </div>
+  <div class="sidebar-search">
+    <input type="search" class="search-input" id="searchInput" placeholder="Buscar sessões..." aria-label="Buscar sessões">
+  </div>
+  <div class="session-list" id="sessionList" role="listbox" aria-label="Lista de sessões">
+    <div class="empty-state" id="emptyState" role="status">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/><line x1="7" y1="7" x2="21" y2="21"/></svg>
+      <p>Nenhuma sessão ainda</p>
+      <small>Clique em "Nova sessão" para começar</small>
+    </div>
+  </div>
+  <div class="sidebar-footer">
+    <button class="btn new-session-btn" id="newSessionBtn">Nova sessão</button>
+  </div>
+</aside>
+
+<!-- Mobile Overlay -->
+<div class="sidebar-backdrop" id="sidebarBackdrop" aria-hidden="true"></div>
+
+<!-- Settings Modal -->
+<div class="modal-backdrop" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle" style="display:none;">
+  <div class="modal">
+    <header class="modal-header">
+      <h1 id="settingsModalTitle">Configurações</h1>
+      <button class="modal-close" id="settingsCloseBtn" aria-label="Fechar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </header>
+    <div class="modal-body">
+      <!-- TTS Voice -->
+      <section class="settings-section">
+        <h2 class="section-title">Voz (TTS)</h2>
+        <div class="field">
+          <label class="field-label" for="settingsTtsVoice">Voz</label>
+          <select class="select" id="settingsTtsVoice" aria-label="Selecionar voz TTS"></select>
+          <p class="field-hint">Vozes Microsoft Edge TTS. Português do Brasil por padrão.</p>
+        </div>
+        <div class="voice-preview">
+          <button class="voice-preview-btn" id="settingsPreviewBtn" disabled>Ouvir prévia</button>
+          <span class="voice-preview-status" id="settingsPreviewStatus">Selecione uma voz</span>
+        </div>
+      </section>
+
+      <!-- STT / Whisper -->
+      <section class="settings-section">
+        <h2 class="section-title">Transcrição (STT)</h2>
+        <div class="field">
+          <label class="field-label" for="settingsWhisperModel">Modelo Whisper</label>
+          <select class="select" id="settingsWhisperModel" aria-label="Selecionar modelo Whisper">
+            <option value="tiny">tiny (~39 MB) — mais rápido, menos preciso</option>
+            <option value="base" selected>base (~74 MB) — equilibrado</option>
+            <option value="small">small (~244 MB) — mais preciso</option>
+            <option value="medium">medium (~769 MB) — muito preciso</option>
+            <option value="large-v3">large-v3 (~1.5 GB) — máximo precisão</option>
+          </select>
+          <p class="field-hint">Modelos maiores = mais VRAM/RAM e latência maior. <code>base</code> recomendado para CPU.</p>
+        </div>
+        <div class="field">
+          <label class="field-label" for="settingsSttLanguage">Idioma da transcrição</label>
+          <select class="select" id="settingsSttLanguage" aria-label="Idioma STT">
+            <option value="pt">Português</option>
+            <option value="en">English</option>
+            <option value="es">Español</option>
+            <option value="fr">Français</option>
+            <option value="auto">Detecção automática</option>
+          </select>
+        </div>
+      </section>
+
+      <!-- Microphone Test -->
+      <section class="settings-section">
+        <h2 class="section-title">Teste de Microfone</h2>
+        <div class="mic-test" id="settingsMicTest">
+          <div class="mic-test-header">
+            <span>Nível de entrada</span>
+            <div class="mic-level" aria-hidden="true"><div class="mic-level-bar" id="settingsMicLevelBar"></div></div>
+          </div>
+          <button class="mic-test-btn" id="settingsMicTestBtn" aria-label="Iniciar teste de microfone">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+            Iniciar teste
+          </button>
+          <p class="mic-test-result" id="settingsMicTestResult" aria-live="polite">Clique em "Iniciar teste" e fale algo...</p>
+        </div>
+      </section>
+
+      <!-- General -->
+      <section class="settings-section">
+        <h2 class="section-title">Geral</h2>
+        <div class="field toggle-row">
+          <div class="toggle-label">
+            <span class="toggle-title">Iniciar bridge ao abrir app</span>
+            <span class="toggle-desc">Sobe servidor local (porta 8420) automaticamente</span>
+          </div>
+          <button class="toggle on" id="settingsToggleAutoStart" aria-pressed="true" aria-label="Iniciar bridge automaticamente"></button>
+        </div>
+        <div class="field toggle-row">
+          <div class="toggle-label">
+            <span class="toggle-title">Salvar áudio localmente</span>
+            <span class="toggle-desc">Mantém MP3s em cache para replay offline</span>
+          </div>
+          <button class="toggle on" id="settingsToggleSaveAudio" aria-pressed="true" aria-label="Salvar áudio localmente"></button>
+        </div>
+        <div class="field toggle-row">
+          <div class="toggle-label">
+            <span class="toggle-title">Tema escuro forçado</span>
+            <span class="toggle-desc">Ignora preferência do sistema</span>
+          </div>
+          <button class="toggle" id="settingsToggleDarkMode" aria-pressed="false" aria-label="Tema escuro forçado"></button>
+        </div>
+      </section>
+
+      <!-- Danger Zone -->
+      <section class="settings-section">
+        <h2 class="section-title">Zona de Perigo</h2>
+        <div class="field">
+          <button class="btn btn-danger" id="settingsClearCacheBtn">Limpar cache de áudio</button>
+          <p class="field-hint">Remove todos os MP3s gerados em <code>/tmp/hermes-audio/</code></p>
+        </div>
+        <div class="field">
+          <button class="btn btn-danger" id="settingsResetBtn">Restaurar padrões</button>
+          <p class="field-hint">Reseta todas as configurações acima</p>
+        </div>
+      </section>
+    </div>
+    <footer class="modal-footer">
+      <button class="btn btn-secondary" id="settingsCancelBtn">Cancelar</button>
+      <button class="btn" id="settingsSaveBtn">Salvar</button>
+    </footer>
+  </div>
+</div>
     <span><span class="status-dot" id="stt-dot"></span> STT: <span id="stt-status">—</span></span>
     <span><span class="status-dot" id="tts-dot"></span> TTS: <span id="tts-status">—</span></span>
     <span><span class="status-dot" id="api-dot"></span> API: <span id="api-status">conectando...</span></span>
   </div>
 </footer>
+
+<!-- Onboarding First-Run Modal -->
+<div class="modal-backdrop onboarding-backdrop" id="onboardingModal" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle" style="display:none;">
+  <div class="modal onboarding-modal">
+    <!-- Progress Bar -->
+    <div class="progress-bar"><div class="progress-bar-fill" id="onbProgressFill"></div></div>
+    
+    <main class="onboarding-shell" role="main">
+      <div class="onboarding-content">
+        <!-- Step 1: Welcome -->
+        <section class="step active" id="onbStep1" data-step="1" aria-labelledby="onbStep1Title">
+          <header class="step-header">
+            <div class="step-number">1/4</div>
+            <div class="step-titles">
+              <h1 class="step-title" id="onbStep1Title">Bem-vindo ao Hermes Voice</h1>
+              <p class="step-subtitle">Seu agente local com voz — privado, rápido, seu.</p>
+            </div>
+          </header>
+          <div class="welcome-grid">
+            <div class="welcome-copy">
+              <p style="margin:0; color:var(--muted); line-height:1.6; font-size:1.05rem;">
+                O Hermes roda 100% no seu computador. Nada vai pra nuvem a menos que você configure.
+              </p>
+              <ul class="value-props">
+                <li class="value-prop">
+                  <span class="value-prop-icon" aria-hidden="true">🔒</span>
+                  <div class="value-prop-text">
+                    <span class="value-prop-label">Privado</span>
+                    <span class="value-prop-desc">STT/TTS locais, seus dados não saem da máquina</span>
+                  </div>
+                </li>
+                <li class="value-prop">
+                  <span class="value-prop-icon" aria-hidden="true">⚡</span>
+                  <div class="value-prop-text">
+                    <span class="value-prop-label">Rápido</span>
+                    <span class="value-prop-desc">Whisper int8 CPU + Edge TTS neural, latência baixa</span>
+                  </div>
+                </li>
+                <li class="value-prop">
+                  <span class="value-prop-icon" aria-hidden="true">🎛️</span>
+                  <div class="value-prop-text">
+                    <span class="value-prop-label">Seu</span>
+                    <span class="value-prop-desc">Você controla modelo, voz, sessões, tudo</span>
+                  </div>
+                </li>
+              </ul>
+            </div>
+            <div class="welcome-illustration" aria-hidden="true">✦</div>
+          </div>
+          <div class="btn-row">
+            <button class="btn" id="onbStartBtn">Começar</button>
+          </div>
+          <a href="#" class="skip-link" id="onbSkip1">Pular configuração →</a>
+        </section>
+
+        <!-- Step 2: Mic Permission -->
+        <section class="step" id="onbStep2" data-step="2" aria-labelledby="onbStep2Title">
+          <header class="step-header">
+            <div class="step-number">2/4</div>
+            <div class="step-titles">
+              <h1 class="step-title" id="onbStep2Title">Permissão do Microfone</h1>
+              <p class="step-subtitle">Precisamos de acesso ao microfone para ouvir você.</p>
+            </div>
+          </header>
+          <div class="perm-list" id="onbPermList">
+            <div class="perm-item pending" id="onbPermMic">
+              <div class="perm-icon" aria-hidden="true">🎤</div>
+              <div class="perm-text">
+                <div class="perm-title">Microfone</div>
+                <div class="perm-desc">Capturar áudio para transcrição (STT local)</div>
+              </div>
+            </div>
+            <div class="perm-item" id="onbPermNotif">
+              <div class="perm-icon" aria-hidden="true">🔔</div>
+              <div class="perm-text">
+                <div class="perm-title">Notificações <span style="font-weight:400;color:var(--muted);font-size:0.85em;">(opcional)</span></div>
+                <div class="perm-desc">Avisar quando a resposta estiver pronta</div>
+              </div>
+            </div>
+          </div>
+          <p class="perm-note">O Hermes usa <code>faster-whisper</code> local — seu áudio nunca sai do dispositivo.</p>
+          <div class="btn-row">
+            <button class="btn" id="onbRequestMicBtn" disabled>Permitir microfone</button>
+            <button class="btn btn-secondary" id="onbSkipMicBtn">Agora não</button>
+          </div>
+          <a href="#" class="skip-link" id="onbSkip2">Pular →</a>
+        </section>
+
+        <!-- Step 3: Voice Select -->
+        <section class="step" id="onbStep3" data-step="3" aria-labelledby="onbStep3Title">
+          <header class="step-header">
+            <div class="step-number">3/4</div>
+            <div class="step-titles">
+              <h1 class="step-title" id="onbStep3Title">Escolha sua voz</h1>
+              <p class="step-subtitle">Selecione a voz que o Hermes vai usar para responder.</p>
+            </div>
+          </header>
+          <div class="voice-options" id="onbVoiceOptions" role="radiogroup" aria-label="Selecionar voz TTS"></div>
+          <p class="voice-note">Tecnologia: <code>edge-tts</code> (Microsoft) — roda localmente via bridge.</p>
+          <div class="btn-row">
+            <button class="btn" id="onbContinueVoiceBtn" disabled>Continuar</button>
+          </div>
+          <a href="#" class="skip-link" id="onbSkip3">Pular →</a>
+        </section>
+
+        <!-- Step 4: Mic Test -->
+        <section class="step" id="onbStep4" data-step="4" aria-labelledby="onbStep4Title">
+          <header class="step-header">
+            <div class="step-number">4/4</div>
+            <div class="step-titles">
+              <h1 class="step-title" id="onbStep4Title">Teste seu microfone</h1>
+              <p class="step-subtitle">Fale algo para confirmar que tudo funciona.</p>
+            </div>
+          </header>
+          <div class="mic-test-area">
+            <div class="mic-visualizer" id="onbMicVisualizer" aria-hidden="true">
+              <div class="mic-bar" style="--i:0"></div>
+              <div class="mic-bar" style="--i:1"></div>
+              <div class="mic-bar" style="--i:2"></div>
+              <div class="mic-bar" style="--i:3"></div>
+              <div class="mic-bar" style="--i:4"></div>
+              <div class="mic-bar" style="--i:5"></div>
+              <div class="mic-bar" style="--i:6"></div>
+              <div class="mic-bar" style="--i:7"></div>
+              <div class="mic-bar" style="--i:8"></div>
+              <div class="mic-bar" style="--i:9"></div>
+              <div class="mic-bar" style="--i:10"></div>
+              <div class="mic-bar" style="--i:11"></div>
+              <div class="mic-bar" style="--i:12"></div>
+              <div class="mic-bar" style="--i:13"></div>
+              <div class="mic-bar" style="--i:14"></div>
+            </div>
+            <button class="mic-btn" id="onbMicTestBtn" aria-label="Iniciar teste de microfone">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+            </button>
+            <p class="mic-status" id="onbMicStatus" aria-live="polite">Pressione o botão e diga algo...</p>
+            <p class="mic-hint">O teste grava ~3s e envia pro STT local. Nada é salvo.</p>
+          </div>
+          <div class="btn-row">
+            <button class="btn" id="onbFinishBtn" disabled>Finalizar</button>
+          </div>
+          <a href="#" class="skip-link" id="onbSkip4">Pular teste →</a>
+        </section>
+
+        <!-- Step 5: Complete -->
+        <section class="step" id="onbStep5" data-step="5" aria-labelledby="onbStep5Title">
+          <header class="step-header">
+            <div class="step-number">✓</div>
+            <div class="step-titles">
+              <h1 class="step-title" id="onbStep5Title">Pronto!</h1>
+              <p class="step-subtitle">O Hermes Voice está configurado.</p>
+            </div>
+          </header>
+          <div class="completion-grid">
+            <div class="completion-icon" aria-hidden="true">✓</div>
+            <div>
+              <h2 class="completion-title">Tudo configurado</h2>
+              <p class="completion-text">Sua voz, sua sessão, seu Hermes.</p>
+              <div class="completion-highlights">
+                <div class="highlight"><span class="highlight-dot"></span>Microfone: <strong id="onbSummaryMic">—</strong></div>
+                <div class="highlight"><span class="highlight-dot"></span>Voz TTS: <strong id="onbSummaryVoice">—</strong></div>
+                <div class="highlight"><span class="highlight-dot"></span>Teste de áudio: <strong id="onbSummaryTest">—</strong></div>
+              </div>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn" id="onbOpenAppBtn">Abrir Hermes</button>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Design Canvas Modal -->
+<div class="design-canvas-modal hidden" id="designCanvasModal" role="dialog" aria-modal="true" aria-labelledby="designCanvasTitle">
+  <div class="design-canvas-container">
+    <header class="design-canvas-header">
+      <h2 id="designCanvasTitle">Design Canvas</h2>
+      <button class="design-canvas-close" id="designCanvasClose" aria-label="Fechar Design Canvas">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </header>
+    <iframe class="design-canvas-iframe" id="designCanvasIframe" sandbox="allow-scripts allow-same-origin allow-forms allow-pointer-lock" src="design-canvas.html"></iframe>
+  </div>
+</div>
+
 <script>
 const API = 'http://127.0.0.1:8420'; // bridge server
 const chat = document.getElementById('chat');
@@ -109,7 +1204,7 @@ let recordingStart = 0;
 function setSessionBadge() {
   sessionBadge.textContent = sessionId ? sessionId.slice(0, 8) : 'nova';
 }
-function addMsg(role, text, audioUrl = null) {
+function addMsg(role, text, audioUrl = null, meta = {}) {
   const wrap = document.createElement('div');
   wrap.className = `msg ${role === 'user' ? 'user' : 'agent'}`;
   const bubble = document.createElement('div');
@@ -122,6 +1217,13 @@ function addMsg(role, text, audioUrl = null) {
     audio.controls = true;
     audio.src = API + audioUrl;
     wrap.appendChild(audio);
+  }
+  // Canvas snapshot preview
+  if (meta.canvasSnapshot) {
+    const canvasPreview = document.createElement('div');
+    canvasPreview.className = 'canvas-snapshot';
+    canvasPreview.innerHTML = `<img src="${meta.canvasSnapshot}" alt="Canvas snapshot" style="max-width:100%;border-radius:8px;margin-top:8px;border:1px solid var(--border);">`;
+    wrap.appendChild(canvasPreview);
   }
   chat.appendChild(wrap);
   chat.scrollTop = chat.scrollHeight;
@@ -238,10 +1340,1567 @@ function stopRecording() {
   }
 }
 
-// Init
-setSessionBadge();
-checkHealth();
-setTimeout(checkHealth, 30000); // re-check every 30s
+// ── Settings Modal ──
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsModal = document.getElementById('settingsModal');
+const settingsCloseBtn = document.getElementById('settingsCloseBtn');
+const settingsCancelBtn = document.getElementById('settingsCancelBtn');
+const settingsSaveBtn = document.getElementById('settingsSaveBtn');
+
+const settingsTtsVoice = document.getElementById('settingsTtsVoice');
+const settingsWhisperModel = document.getElementById('settingsWhisperModel');
+const settingsSttLanguage = document.getElementById('settingsSttLanguage');
+const settingsPreviewBtn = document.getElementById('settingsPreviewBtn');
+const settingsPreviewStatus = document.getElementById('settingsPreviewStatus');
+
+const settingsToggleAutoStart = document.getElementById('settingsToggleAutoStart');
+const settingsToggleSaveAudio = document.getElementById('settingsToggleSaveAudio');
+const settingsToggleDarkMode = document.getElementById('settingsToggleDarkMode');
+const settingsClearCacheBtn = document.getElementById('settingsClearCacheBtn');
+const settingsResetBtn = document.getElementById('settingsResetBtn');
+
+const settingsMicTestBtn = document.getElementById('settingsMicTestBtn');
+const settingsMicLevelBar = document.getElementById('settingsMicLevelBar');
+const settingsMicTestResult = document.getElementById('settingsMicTestResult');
+
+let settingsState = {
+  ttsVoice: 'pt-BR-AntonioNeural',
+  whisperModel: 'base',
+  sttLanguage: 'pt',
+  autoStartBridge: true,
+  saveAudio: true,
+  forceDarkMode: false,
+};
+let settingsMediaRecorder = null;
+let settingsAudioContext = null;
+let settingsAnalyser = null;
+let settingsAnimationFrame = null;
+
+function openSettingsModal() {
+  loadSettingsFromBridge();
+  settingsModal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  // Focus first focusable element
+  const focusable = settingsModal.querySelector('button:not(:disabled), select, [href]');
+  if (focusable) focusable.focus();
+}
+
+function closeSettingsModal() {
+  stopSettingsMicTest();
+  settingsModal.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function setSettingsToggle(btn, on) {
+  btn.classList.toggle('on', on);
+  btn.setAttribute('aria-pressed', on);
+}
+
+async function loadSettingsFromBridge() {
+  try {
+    const res = await fetch(API + '/api/settings');
+    const data = await res.json();
+    if (data.settings) {
+      settingsState = { ...settingsState, ...data.settings };
+      syncSettingsUI();
+    }
+    if (data.availableVoices) {
+      populateVoices(data.availableVoices);
+    }
+  } catch (e) {
+    console.warn('Failed to load settings from bridge:', e);
+    // Fallback to localStorage
+    loadSettingsLocal();
+    populateVoicesDefault();
+  }
+}
+
+function loadSettingsLocal() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('hermes-voice-settings') || '{}');
+    settingsState = { ...settingsState, ...saved };
+    syncSettingsUI();
+  } catch (e) { console.warn('Failed to load local settings', e); }
+}
+
+function saveSettingsLocal() {
+  try {
+    localStorage.setItem('hermes-voice-settings', JSON.stringify(settingsState));
+  } catch (e) { console.warn('Failed to save local settings', e); }
+}
+
+function populateVoices(voices) {
+  settingsTtsVoice.innerHTML = voices.map(v =>
+    `<option value="${v.id}" ${v.id === settingsState.ttsVoice ? 'selected' : ''}>${v.name} (${v.lang})</option>`
+  ).join('');
+  settingsPreviewBtn.disabled = false;
+  settingsPreviewStatus.textContent = 'Pressione "Ouvir prévia"';
+}
+
+function populateVoicesDefault() {
+  const voices = [
+    { id: 'pt-BR-AntonioNeural', name: 'Antônio', lang: 'pt-BR' },
+    { id: 'pt-BR-FranciscaNeural', name: 'Francisca', lang: 'pt-BR' },
+    { id: 'pt-BR-ThalitaMultilingualNeural', name: 'Thalita (Multilíngue)', lang: 'pt-BR' },
+    { id: 'en-US-GuyNeural', name: 'Guy', lang: 'en-US' },
+    { id: 'en-US-JennyNeural', name: 'Jenny', lang: 'en-US' },
+  ];
+  populateVoices(voices);
+}
+
+function syncSettingsUI() {
+  settingsTtsVoice.value = settingsState.ttsVoice;
+  settingsWhisperModel.value = settingsState.whisperModel;
+  settingsSttLanguage.value = settingsState.sttLanguage;
+  setSettingsToggle(settingsToggleAutoStart, settingsState.autoStartBridge);
+  setSettingsToggle(settingsToggleSaveAudio, settingsState.saveAudio);
+  setSettingsToggle(settingsToggleDarkMode, settingsState.forceDarkMode);
+  applyDarkMode();
+}
+
+function applyDarkMode() {
+  if (settingsState.forceDarkMode) {
+    document.documentElement.style.setProperty('--bg', '#0a0a0b');
+    document.documentElement.style.setProperty('--fg', '#f5f5f0');
+    document.documentElement.style.setProperty('--muted', '#888');
+    document.documentElement.style.setProperty('--accent', '#c4a97d');
+    document.documentElement.style.setProperty('--card', 'rgba(255,255,255,0.04)');
+    document.documentElement.style.setProperty('--border', 'rgba(255,255,255,0.08)');
+  } else {
+    document.documentElement.style.removeProperty('--bg');
+    document.documentElement.style.removeProperty('--fg');
+    document.documentElement.style.removeProperty('--muted');
+    document.documentElement.style.removeProperty('--accent');
+    document.documentElement.style.removeProperty('--card');
+    document.documentElement.style.removeProperty('--border');
+  }
+}
+
+// Event listeners for settings
+settingsBtn.addEventListener('click', openSettingsModal);
+settingsCloseBtn.addEventListener('click', closeSettingsModal);
+settingsCancelBtn.addEventListener('click', closeSettingsModal);
+settingsModal.addEventListener('click', (e) => { if (e.target === settingsModal) closeSettingsModal(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSettingsModal(); });
+
+settingsTtsVoice.addEventListener('change', () => {
+  settingsState.ttsVoice = settingsTtsVoice.value;
+  settingsPreviewStatus.textContent = 'Voz alterada — pressione "Ouvir prévia"';
+});
+
+settingsWhisperModel.addEventListener('change', () => {
+  settingsState.whisperModel = settingsWhisperModel.value;
+});
+
+settingsSttLanguage.addEventListener('change', () => {
+  settingsState.sttLanguage = settingsSttLanguage.value;
+});
+
+settingsToggleAutoStart.addEventListener('click', () => {
+  settingsState.autoStartBridge = !settingsState.autoStartBridge;
+  setSettingsToggle(settingsToggleAutoStart, settingsState.autoStartBridge);
+});
+
+settingsToggleSaveAudio.addEventListener('click', () => {
+  settingsState.saveAudio = !settingsState.saveAudio;
+  setSettingsToggle(settingsToggleSaveAudio, settingsState.saveAudio);
+});
+
+settingsToggleDarkMode.addEventListener('click', () => {
+  settingsState.forceDarkMode = !settingsState.forceDarkMode;
+  setSettingsToggle(settingsToggleDarkMode, settingsState.forceDarkMode);
+  applyDarkMode();
+});
+
+// Voice preview
+settingsPreviewBtn.addEventListener('click', async () => {
+  settingsPreviewBtn.disabled = true;
+  settingsPreviewBtn.textContent = 'Gerando...';
+  settingsPreviewStatus.textContent = 'Sintetizando áudio...';
+  try {
+    const res = await fetch(API + '/api/settings/preview-tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        voice: settingsState.ttsVoice,
+        text: 'Olá, sou o Hermes. Esta é uma prévia da voz selecionada.',
+      }),
+    });
+    const data = await res.json();
+    if (data.audio_url) {
+      const audio = new Audio(API + data.audio_url);
+      audio.play().then(() => {
+        settingsPreviewStatus.textContent = '✅ Prévia tocada';
+      }).catch(() => {
+        settingsPreviewStatus.textContent = '✅ Prévia gerada (clique para tocar)';
+      });
+    }
+  } catch (e) {
+    settingsPreviewStatus.textContent = '❌ Erro: ' + e.message;
+  } finally {
+    settingsPreviewBtn.disabled = false;
+    settingsPreviewBtn.textContent = 'Ouvir prévia';
+  }
+});
+
+// Mic test
+settingsMicTestBtn.addEventListener('click', toggleSettingsMicTest);
+
+async function toggleSettingsMicTest() {
+  if (settingsMicTestBtn.classList.contains('recording')) {
+    stopSettingsMicTest();
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+    });
+    settingsAudioContext = new AudioContext();
+    settingsAnalyser = settingsAudioContext.createAnalyser();
+    settingsAnalyser.fftSize = 256;
+    const source = settingsAudioContext.createMediaStreamSource(stream);
+    source.connect(settingsAnalyser);
+
+    settingsMediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+    const chunks = [];
+    settingsMediaRecorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+    settingsMediaRecorder.onstop = () => {
+      const blob = new Blob(chunks, { type: 'audio/webm;codecs=opus' });
+      settingsMicTestResult.textContent = `🎙️ Gravado ${(blob.size/1024).toFixed(1)} KB — enviaria para STT no bridge real`;
+      settingsMicTestResult.className = 'mic-test-result ok';
+      stream.getTracks().forEach(t => t.stop());
+    };
+    settingsMediaRecorder.start(100);
+    settingsMicTestBtn.classList.add('recording');
+    settingsMicTestBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="16" rx="2"/></svg> Parar teste';
+    settingsMicTestResult.textContent = 'Gravando... fale agora';
+    settingsMicTestResult.className = 'mic-test-result recording';
+    animateSettingsMicLevel();
+  } catch (err) {
+    settingsMicTestResult.textContent = `❌ Erro: ${err.message}`;
+    settingsMicTestResult.className = 'mic-test-result err';
+  }
+}
+
+function stopSettingsMicTest() {
+  if (settingsMediaRecorder && settingsMediaRecorder.state === 'recording') {
+    settingsMediaRecorder.stop();
+  }
+  if (settingsAudioContext) {
+    settingsAudioContext.close();
+    settingsAudioContext = null;
+  }
+  if (settingsAnimationFrame) {
+    cancelAnimationFrame(settingsAnimationFrame);
+    settingsAnimationFrame = null;
+  }
+  settingsMicTestBtn.classList.remove('recording');
+  settingsMicTestBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg> Iniciar teste';
+  settingsMicLevelBar.style.width = '0%';
+}
+
+function animateSettingsMicLevel() {
+  if (!settingsAnalyser) return;
+  const data = new Uint8Array(settingsAnalyser.frequencyBinCount);
+  settingsAnalyser.getByteFrequencyData(data);
+  const bars = settingsMicLevelBar;
+  let sum = 0;
+  for (let i = 0; i < 20; i++) sum += data[i] || 0;
+  const avg = sum / 20;
+  const level = Math.min(avg / 128, 1);
+  bars.style.width = `${Math.min(level * 100, 100)}%`;
+  settingsAnimationFrame = requestAnimationFrame(animateSettingsMicLevel);
+}
+
+function resetSettingsMicTest() {
+  stopSettingsMicTest();
+  settingsMicTestResult.textContent = 'Clique em "Iniciar teste" e fale algo...';
+  settingsMicTestResult.className = 'mic-test-result';
+}
+
+// Danger zone
+settingsClearCacheBtn.addEventListener('click', () => {
+  if (confirm('Remover todos os arquivos de áudio em cache?')) {
+    settingsMicTestResult.textContent = '🗑️ Cache limpo (simulado)';
+    settingsMicTestResult.className = 'mic-test-result ok';
+  }
+});
+
+settingsResetBtn.addEventListener('click', () => {
+  if (confirm('Restaurar todas as configurações aos padrões?')) {
+    settingsState = {
+      ttsVoice: 'pt-BR-AntonioNeural',
+      whisperModel: 'base',
+      sttLanguage: 'pt',
+      autoStartBridge: true,
+      saveAudio: true,
+      forceDarkMode: false,
+    };
+    syncSettingsUI();
+    saveSettingsLocal();
+    settingsMicTestResult.textContent = '✅ Configurações restauradas';
+    settingsMicTestResult.className = 'mic-test-result ok';
+  }
+});
+
+// Save
+settingsSaveBtn.addEventListener('click', async () => {
+  saveSettingsLocal();
+  try {
+    const res = await fetch(API + '/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settingsState),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      settingsMicTestResult.textContent = '✅ Configurações salvas';
+      settingsMicTestResult.className = 'mic-test-result ok';
+      setTimeout(closeSettingsModal, 800);
+    }
+  } catch (e) {
+    settingsMicTestResult.textContent = '⚠️ Salvo localmente (bridge offline)';
+    settingsMicTestResult.className = 'mic-test-result ok';
+    setTimeout(closeSettingsModal, 800);
+  }
+});
+
+// Init settings modal
+loadSettingsFromBridge();
+
+// ── Session Sidebar (IndexedDB + Bridge Sync) ──
+const sessionSidebar = document.getElementById('sessionSidebar');
+const sidebarToggle = document.getElementById('sidebarToggle');
+const sidebarClose = document.getElementById('sidebarClose');
+const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+const searchInput = document.getElementById('searchInput');
+const sessionList = document.getElementById('sessionList');
+const newSessionBtn = document.getElementById('newSessionBtn');
+const sidebarBackdropEl = document.getElementById('sidebarBackdrop');
+const emptyState = document.getElementById('emptyState');
+
+let sessionsCache = [];
+let currentSessionId = localStorage.getItem('hermes_session_id') || null;
+
+// IndexedDB para cache offline-first
+const SessionDB = {
+  dbName: 'hermes-sessions',
+  version: 1,
+  storeName: 'sessions',
+  
+  async init() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.dbName, this.version);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+        if (!db.objectStoreNames.contains(this.storeName)) {
+          const store = db.createObjectStore(this.storeName, { keyPath: 'id' });
+          store.createIndex('updated_at', 'updated_at', { unique: false });
+          store.createIndex('title', 'title', { unique: false });
+        }
+      };
+    }),
+    
+    async getAll() {
+      const db = await this.init();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(this.storeName, 'readonly');
+        const store = tx.objectStore(this.storeName);
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    },
+    
+    async upsert(session) {
+      const db = await this.init();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(this.storeName, 'readwrite');
+        const store = tx.objectStore(this.storeName);
+        const request = store.put(session);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    },
+    
+    async delete(id) {
+      const db = await this.init();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(this.storeName, 'readwrite');
+        const store = tx.objectStore(this.storeName);
+        const request = store.delete(id);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+    },
+    
+    async clear() {
+      const db = await this.init();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(this.storeName, 'readwrite');
+        const store = tx.objectStore(this.storeName);
+        const request = store.clear();
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+    }
+};
+
+// Sync strategy: load instant from IndexedDB → background merge from bridge → confirm
+async function loadSessions() {
+  // 1. Instant render from IndexedDB
+  try {
+    const cached = await SessionDB.getAll();
+    if (cached.length > 0) {
+      sessionsCache = cached.filter(s => !s.deleted_at);
+      renderSessionList();
+    }
+  } catch (e) {
+    console.warn('IndexedDB unavailable, falling back to bridge:', e);
+  }
+  
+  // 2. Background sync with bridge
+  try {
+    const res = await fetch(API + '/api/sessions?limit=200');
+    const data = await res.json();
+    if (data.sessions) {
+      // Merge strategy: bridge wins on conflict (source of truth)
+      const bridgeSessions = data.sessions;
+      const merged = mergeSessions(sessionsCache, bridgeSessions);
+      sessionsCache = merged;
+      
+      // Persist to IndexedDB
+      for (const session of merged) {
+        await SessionDB.upsert(session);
+      }
+      renderSessionList();
+    }
+  } catch (e) {
+    console.warn('Bridge sync failed, using cache only:', e);
+  }
+}
+
+function mergeSessions(local, remote) {
+  const map = new Map();
+  // Local first
+  for (const s of local) map.set(s.id, { ...s, _local: true });
+  // Remote wins on conflict
+  for (const s of remote) {
+    const existing = map.get(s.id);
+    if (!existing || new Date(s.updated_at) > new Date(existing.updated_at)) {
+      map.set(s.id, { ...s, _local: false });
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => 
+    new Date(b.updated_at) - new Date(a.updated_at)
+  );
+}
+
+function renderSessionList() {
+  const filtered = sessionsCache.filter(s => {
+    const query = searchInput.value.toLowerCase();
+    return s.title.toLowerCase().includes(query) ||
+           s.preview.toLowerCase().includes(query) ||
+           s.id.toLowerCase().includes(query);
+  });
+  
+  if (filtered.length === 0) {
+    sessionList.innerHTML = '';
+    emptyState.style.display = 'block';
+    return;
+  }
+  
+  emptyState.style.display = 'none';
+  sessionList.innerHTML = filtered.map(s => `
+    <button class="session-item ${s.id === currentSessionId ? 'active' : ''}" 
+            data-id="${s.id}" role="option" aria-selected="${s.id === currentSessionId}"
+            aria-label="${s.title}, ${formatRelativeTime(s.updated_at)}, ${s.message_count} mensagens">
+      <div class="session-item-header">
+        <span class="session-title" title="${s.title}">${escapeHtml(s.title)}</span>
+        <span class="session-time">${formatRelativeTime(s.updated_at)}</span>
+      </div>
+      <div class="session-preview" title="${s.preview}">${escapeHtml(s.preview)}</div>
+      <div class="session-meta">
+        <span>${s.message_count} msgs</span>
+        <span>•</span>
+        <span>${s.id.slice(0, 12)}</span>
+      </div>
+      <div class="session-actions">
+        <button class="session-action-btn resume-btn" data-id="${s.id}" aria-label="Retomar sessão ${escapeHtml(s.title)}">Retomar</button>
+        <button class="session-action-btn delete-btn" data-id="${s.id}" aria-label="Excluir sessão ${escapeHtml(s.title)}">Excluir</button>
+      </div>
+    </button>
+  `).join('');
+  
+  // Bind events
+  document.querySelectorAll('.session-item').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      if (e.target.closest('.session-action-btn')) return;
+      const id = btn.dataset.id;
+      resumeSession(id);
+    });
+  });
+  
+  document.querySelectorAll('.resume-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      resumeSession(btn.dataset.id);
+    });
+  });
+  
+  document.querySelectorAll('.delete-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openDeleteModal(btn.dataset.id);
+    });
+  });
+}
+
+function formatRelativeTime(iso) {
+  const date = new Date(iso);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  
+  if (diffMins < 1) return 'agora';
+  if (diffMins < 60) return `${diffMins}min`;
+  if (diffHours < 24) return `${diffHours}h`;
+  if (diffDays < 7) return `${diffDays}d`;
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
+function escapeHtml(str) {
+  return str.replace(/[&<>"']/g, c => ({'&':'&','<':'<','>':'>','"':'"',"'":'''}[c]));
+}
+
+function createNewSession() {
+  const id = `sid_${new Date().toISOString().slice(0,10).replace(/-/g,'')}_${String(sessionsCache.length+1).padStart(3,'0')}`;
+  const session = {
+    id, title: 'Nova conversa', preview: '', messages: [],
+    updatedAt: new Date().toISOString(), createdAt: new Date().toISOString(),
+    messageCount: 0, deletedAt: null, meta: {}
+  };
+  sessionsCache.unshift(session);
+  renderSessionList();
+  resumeSession(session.id);
+  SessionDB.upsert(session);
+}
+
+async function resumeSession(id) {
+  currentSessionId = id;
+  localStorage.setItem('hermes_session_id', id);
+  renderSessionList();
+  updateSessionBadge();
+  toggleSidebar(false);
+  
+  // Load messages from bridge
+  try {
+    const res = await fetch(API + '/api/sessions/' + id);
+    const session = await res.json();
+    if (session.messages) {
+      chat.innerHTML = session.messages.map(m => `
+        <div class="msg ${m.role}">
+          <div class="bubble">${escapeHtml(m.content)}</div>
+          <div class="meta">${m.role === 'user' ? 'Você' : 'Hermes'} • ${formatTime(m.timestamp)}</div>
+          ${m.audio_url ? `<audio class="audio-player" controls src="${API}${m.audio_url}"></audio>` : ''}
+        </div>
+      `).join('');
+      chat.scrollTop = chat.scrollHeight;
+    }
+  } catch (e) {
+    console.warn('Failed to load session messages:', e);
+  }
+  input.focus();
+}
+
+async function openDeleteModal(id) {
+  const session = sessionsCache.find(s => s.id === id);
+  if (!session) return;
+  
+  if (confirm(`Excluir sessão "${session.title}"?`)) {
+    await deleteSession(id);
+  }
+}
+
+async function deleteSession(id) {
+  // Optimistic delete
+  sessionsCache = sessionsCache.filter(s => s.id !== id);
+  if (currentSessionId === id) {
+    currentSessionId = sessionsCache[0]?.id || null;
+    localStorage.setItem('hermes_session_id', currentSessionId || '');
+    updateSessionBadge();
+  }
+  renderSessionList();
+  
+  // Sync with bridge
+  try {
+    await fetch(API + '/api/sessions/' + id, { method: 'DELETE' });
+    await SessionDB.delete(id);
+  } catch (e) {
+    console.warn('Delete sync failed:', e);
+  }
+}
+
+function toggleSidebar(open) {
+  sessionSidebar.classList.toggle('open', open);
+  sidebarBackdrop.classList.toggle('open', open);
+  sidebarToggle.setAttribute('aria-expanded', open);
+  sidebarBackdrop.setAttribute('aria-hidden', !open);
+}
+
+function updateSessionBadge() {
+  sessionBadge.textContent = currentSessionId ? currentSessionId.slice(0, 8) : 'nova';
+}
+
+// Search debounce
+let searchDebounce = null;
+searchInput.addEventListener('input', (e) => {
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(() => renderSessionList(), 150);
+});
+
+// Event listeners
+sidebarToggle.addEventListener('click', () => toggleSidebar(true));
+sidebarClose.addEventListener('click', () => toggleSidebar(false));
+sidebarBackdrop.addEventListener('click', () => toggleSidebar(false));
+newSessionBtn.addEventListener('click', createNewSession);
+
+document.addEventListener('keydown', (e) => { 
+  if (e.key === 'Escape') { 
+    toggleSidebar(false); 
+    closeSettingsModal(); 
+  } 
+});
+
+// Initialize
+SessionDB.init().then(() => {
+  loadSessions();
+  updateSessionBadge();
+if (data.ok) {
+      settingsMicTestResult.textContent = '✅ Configurações salvas';
+      settingsMicTestResult.className = 'mic-test-result ok';
+      setTimeout(closeSettingsModal, 800);
+    }
+  } catch (e) {
+    settingsMicTestResult.textContent = '⚠️ Salvo localmente (bridge offline)';
+    settingsMicTestResult.className = 'mic-test-result ok';
+    setTimeout(closeSettingsModal, 800);
+  }
+});
+
+// ── Session Sidebar (IndexedDB + Bridge Sync) ──
+const sessionSidebar = document.getElementById('sessionSidebar');
+const sidebarToggle = document.getElementById('sidebarToggle');
+const sidebarClose = document.getElementById('sidebarClose');
+const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+const searchInput = document.getElementById('searchInput');
+const sessionList = document.getElementById('sessionList');
+const newSessionBtn = document.getElementById('newSessionBtn');
+const sidebarBackdropEl = document.getElementById('sidebarBackdrop');
+const emptyState = document.getElementById('emptyState');
+
+let sessionsCache = [];
+let currentSessionId = localStorage.getItem('hermes_session_id') || null;
+
+// IndexedDB para cache offline-first
+const SessionDB = {
+  dbName: 'hermes-sessions',
+  version: 1,
+  storeName: 'sessions',
+  
+  async init() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.dbName, this.version);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+        if (!db.objectStoreNames.contains(this.storeName)) {
+          const store = db.createObjectStore(this.storeName, { keyPath: 'id' });
+          store.createIndex('updated_at', 'updated_at', { unique: false });
+          store.createIndex('title', 'title', { unique: false });
+        }
+      };
+    }),
+    
+    async getAll() {
+      const db = await this.init();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(this.storeName, 'readonly');
+        const store = tx.objectStore(this.storeName);
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    },
+    
+    async upsert(session) {
+      const db = await this.init();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(this.storeName, 'readwrite');
+        const store = tx.objectStore(this.storeName);
+        const request = store.put(session);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    },
+    
+    async delete(id) {
+      const db = await this.init();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(this.storeName, 'readwrite');
+        const store = tx.objectStore(this.storeName);
+        const request = store.delete(id);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+    },
+    
+    async clear() {
+      const db = await this.init();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(this.storeName, 'readwrite');
+        const store = tx.objectStore(this.storeName);
+        const request = store.clear();
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+    }
+};
+
+// Sync strategy: load instant from IndexedDB → background merge from bridge → confirm
+async function loadSessions() {
+  // 1. Instant render from IndexedDB
+  try {
+    const cached = await SessionDB.getAll();
+    if (cached.length > 0) {
+      sessionsCache = cached.filter(s => !s.deleted_at);
+      renderSessionList();
+    }
+  } catch (e) {
+    console.warn('IndexedDB unavailable, falling back to bridge:', e);
+  }
+  
+  // 2. Background sync with bridge
+  try {
+    const res = await fetch(API + '/api/sessions?limit=200');
+    const data = await res.json();
+    if (data.sessions) {
+      // Merge strategy: bridge wins on conflict (source of truth)
+      const bridgeSessions = data.sessions;
+      const merged = mergeSessions(sessionsCache, bridgeSessions);
+      sessionsCache = merged;
+      
+      // Persist to IndexedDB
+      for (const session of merged) {
+        await SessionDB.upsert(session);
+      }
+      renderSessionList();
+    }
+  } catch (e) {
+    console.warn('Bridge sync failed, using cache only:', e);
+  }
+}
+
+function mergeSessions(local, remote) {
+  const map = new Map();
+  // Local first
+  for (const s of local) map.set(s.id, { ...s, _local: true });
+  // Remote wins on conflict
+  for (const s of remote) {
+    const existing = map.get(s.id);
+    if (!existing || new Date(s.updated_at) > new Date(existing.updated_at)) {
+      map.set(s.id, { ...s, _local: false });
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => 
+    new Date(b.updated_at) - new Date(a.updated_at)
+  );
+}
+
+function renderSessionList() {
+  const filtered = sessionsCache.filter(s => {
+    const query = searchInput.value.toLowerCase();
+    return s.title.toLowerCase().includes(query) ||
+           s.preview.toLowerCase().includes(query) ||
+           s.id.toLowerCase().includes(query);
+  });
+  
+  if (filtered.length === 0) {
+    sessionList.innerHTML = '';
+    emptyState.style.display = 'block';
+    return;
+  }
+  
+  emptyState.style.display = 'none';
+  sessionList.innerHTML = filtered.map(s => `
+    <button class="session-item ${s.id === currentSessionId ? 'active' : ''}" 
+            data-id="${s.id}" role="option" aria-selected="${s.id === currentSessionId}"
+            aria-label="${s.title}, ${formatRelativeTime(s.updated_at)}, ${s.message_count} mensagens">
+      <div class="session-item-header">
+        <span class="session-title" title="${s.title}">${escapeHtml(s.title)}</span>
+        <span class="session-time">${formatRelativeTime(s.updated_at)}</span>
+      </div>
+      <div class="session-preview" title="${s.preview}">${escapeHtml(s.preview)}</div>
+      <div class="session-meta">
+        <span>${s.message_count} msgs</span>
+        <span>•</span>
+        <span>${s.id.slice(0, 12)}</span>
+      </div>
+      <div class="session-actions">
+        <button class="session-action-btn resume-btn" data-id="${s.id}" aria-label="Retomar sessão ${escapeHtml(s.title)}">Retomar</button>
+        <button class="session-action-btn delete-btn" data-id="${s.id}" aria-label="Excluir sessão ${escapeHtml(s.title)}">Excluir</button>
+      </div>
+    </button>
+  `).join('');
+  
+  // Bind events
+  document.querySelectorAll('.session-item').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      if (e.target.closest('.session-action-btn')) return;
+      const id = btn.dataset.id;
+      resumeSession(id);
+    });
+  });
+  
+  document.querySelectorAll('.resume-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      resumeSession(btn.dataset.id);
+    });
+  });
+  
+  document.querySelectorAll('.delete-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openDeleteModal(btn.dataset.id);
+    });
+  });
+}
+
+function formatRelativeTime(iso) {
+  const date = new Date(iso);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  
+  if (diffMins < 1) return 'agora';
+  if (diffMins < 60) return `${diffMins}min`;
+  if (diffHours < 24) return `${diffHours}h`;
+  if (diffDays < 7) return `${diffDays}d`;
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
+function escapeHtml(str) {
+  return str.replace(/[&<>"']/g, c => ({'&':'&','<':'<','>':'>','"':'"',"'":'''}[c]));
+}
+
+function createNewSession() {
+  const id = `sid_${new Date().toISOString().slice(0,10).replace(/-/g,'')}_${String(sessionsCache.length+1).padStart(3,'0')}`;
+  const session = {
+    id, title: 'Nova conversa', preview: '', messages: [],
+    updatedAt: new Date().toISOString(), createdAt: new Date().toISOString(),
+    messageCount: 0, deletedAt: null, meta: {}
+  };
+  sessionsCache.unshift(session);
+  renderSessionList();
+  resumeSession(session.id);
+  SessionDB.upsert(session);
+}
+
+async function resumeSession(id) {
+  currentSessionId = id;
+  localStorage.setItem('hermes_session_id', id);
+  renderSessionList();
+  updateSessionBadge();
+  toggleSidebar(false);
+  
+  // Load messages from bridge
+  try {
+    const res = await fetch(API + '/api/sessions/' + id);
+    const session = await res.json();
+    if (session.messages) {
+      chat.innerHTML = session.messages.map(m => `
+        <div class="msg ${m.role}">
+          <div class="bubble">${escapeHtml(m.content)}</div>
+          <div class="meta">${m.role === 'user' ? 'Você' : 'Hermes'} • ${formatTime(m.timestamp)}</div>
+          ${m.audio_url ? `<audio class="audio-player" controls src="${API}${m.audio_url}"></audio>` : ''}
+        </div>
+      `).join('');
+      chat.scrollTop = chat.scrollHeight;
+    }
+  } catch (e) {
+    console.warn('Failed to load session messages:', e);
+  }
+  input.focus();
+}
+
+async function openDeleteModal(id) {
+  const session = sessionsCache.find(s => s.id === id);
+  if (!session) return;
+  
+  if (confirm(`Excluir sessão "${session.title}"?`)) {
+    await deleteSession(id);
+  }
+}
+
+async function deleteSession(id) {
+  // Optimistic delete
+  sessionsCache = sessionsCache.filter(s => s.id !== id);
+  if (currentSessionId === id) {
+    currentSessionId = sessionsCache[0]?.id || null;
+    localStorage.setItem('hermes_session_id', currentSessionId || '');
+    updateSessionBadge();
+  }
+  renderSessionList();
+  
+  // Sync with bridge
+  try {
+    await fetch(API + '/api/sessions/' + id, { method: 'DELETE' });
+    await SessionDB.delete(id);
+  } catch (e) {
+    console.warn('Delete sync failed:', e);
+  }
+}
+
+function toggleSidebar(open) {
+  sessionSidebar.classList.toggle('open', open);
+  sidebarBackdrop.classList.toggle('open', open);
+  sidebarToggle.setAttribute('aria-expanded', open);
+  sidebarBackdrop.setAttribute('aria-hidden', !open);
+}
+
+function updateSessionBadge() {
+  sessionBadge.textContent = currentSessionId ? currentSessionId.slice(0, 8) : 'nova';
+}
+
+// Search debounce
+let searchDebounce = null;
+searchInput.addEventListener('input', (e) => {
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(() => renderSessionList(), 150);
+});
+
+// Event listeners
+sidebarToggle.addEventListener('click', () => toggleSidebar(true));
+sidebarClose.addEventListener('click', () => toggleSidebar(false));
+sidebarBackdrop.addEventListener('click', () => toggleSidebar(false));
+newSessionBtn.addEventListener('click', createNewSession);
+
+document.addEventListener('keydown', (e) => { 
+  if (e.key === 'Escape') { 
+    toggleSidebar(false); 
+    closeSettingsModal(); 
+  } 
+});
+
+// Initialize
+SessionDB.init().then(() => {
+  loadSessions();
+  updateSessionBadge();
+});
+
+// Init settings modal
+loadSettingsFromBridge();
+
+// ── Onboarding First-Run ──
+const onboardingBackdrop = document.getElementById('onboardingBackdrop');
+const onboardingModal = document.getElementById('onboardingModal');
+const progressFill = document.getElementById('onbProgressFill');
+const steps = document.querySelectorAll('.step');
+const onbStartBtn = document.getElementById('onbStartBtn');
+const onbRequestMicBtn = document.getElementById('onbRequestMicBtn');
+const onbSkipMicBtn = document.getElementById('onbSkipMicBtn');
+const onbContinueVoiceBtn = document.getElementById('onbContinueVoiceBtn');
+const onbMicTestBtn = document.getElementById('onbMicTestBtn');
+const onbFinishBtn = document.getElementById('onbFinishBtn');
+const onbOpenAppBtn = document.getElementById('onbOpenAppBtn');
+const skipLinks = document.querySelectorAll('.skip-link');
+const onbPermMic = document.getElementById('onbPermMic');
+const onbVoiceOptions = document.getElementById('onbVoiceOptions');
+const onbMicVisualizer = document.getElementById('onbMicVisualizer');
+const onbMicStatus = document.getElementById('onbMicStatus');
+const onbSummaryMic = document.getElementById('onbSummaryMic');
+const onbSummaryVoice = document.getElementById('onbSummaryVoice');
+const onbSummaryTest = document.getElementById('onbSummaryTest');
+
+let currentStep = 1;
+let selectedVoiceId = 'pt-BR-AntonioNeural';
+let micGranted = false;
+let micTested = false;
+let mediaRecorder = null;
+let audioContext = null;
+let analyser = null;
+let animationFrame = null;
+
+const VOICES = [
+  { id: 'pt-BR-AntonioNeural', name: 'Antônio', lang: 'pt-BR', gender: 'Masculino', initial: 'A' },
+  { id: 'pt-BR-FranciscaNeural', name: 'Francisca', lang: 'pt-BR', gender: 'Feminino', initial: 'F' },
+  { id: 'pt-BR-ThalitaMultilingualNeural', name: 'Thalita (Multilíngue)', lang: 'pt-BR', gender: 'Feminino', initial: 'T' },
+  { id: 'en-US-GuyNeural', name: 'Guy', lang: 'en-US', gender: 'Masculino', initial: 'G' },
+  { id: 'en-US-JennyNeural', name: 'Jenny', lang: 'en-US', gender: 'Feminino', initial: 'J' },
+];
+
+function checkOnboardingComplete() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('hermes-voice-onboarding') || '{}');
+    if (saved.onboardingComplete) {
+      selectedVoiceId = saved.ttsVoice || selectedVoiceId;
+      micGranted = saved.micGranted || false;
+      micTested = saved.micTested || false;
+      return true;
+    }
+  } catch (e) { /* ignore */ }
+  return false;
+}
+
+function saveOnboarding() {
+  const settings = {
+    ttsVoice: selectedVoiceId,
+    micGranted,
+    micTested,
+    onboardingComplete: true,
+    completedAt: new Date().toISOString()
+  };
+  try { localStorage.setItem('hermes-voice-onboarding', JSON.stringify(settings)); } catch (e) { console.warn('Failed to save onboarding', e); }
+}
+
+function updateProgress() {
+  const pct = ((currentStep - 1) / 4) * 100;
+  progressFill.style.width = `${pct}%`;
+}
+
+function goToStep(step) {
+  if (step < 1 || step > 5) return;
+  if (step === 3 && !micGranted && !confirm('Continuar sem permissão de microfone?')) return;
+  if (step === 4 && !selectedVoiceId) return;
+  if (step === 5 && !micTested && !confirm('Finalizar sem testar o microfone?')) return;
+
+  currentStep = step;
+  steps.forEach(s => s.classList.toggle('active', parseInt(s.dataset.step) === step));
+  updateProgress();
+  updateStepUI();
+  const activeStep = document.querySelector('.step.active');
+  const focusable = activeStep.querySelector('button:not(:disabled), [href]');
+  if (focusable) focusable.focus();
+}
+
+function updateStepUI() {
+  switch (currentStep) {
+    case 2: updatePermUI(); break;
+    case 3: renderVoices(); break;
+    case 4: resetMicTest(); break;
+    case 5: updateSummary(); break;
+  }
+}
+
+function updatePermUI() {
+  onbPermMic.classList.toggle('granted', micGranted);
+  onbPermMic.classList.toggle('pending', !micGranted && currentStep === 2);
+  onbPermMic.querySelector('.perm-icon').textContent = micGranted ? '✓' : '🎤';
+  onbPermMic.querySelector('.perm-title').textContent = micGranted ? 'Microfone (concedido)' : 'Microfone';
+  onbRequestMicBtn.disabled = micGranted;
+  onbRequestMicBtn.textContent = micGranted ? 'Concedido ✓' : 'Permitir microfone';
+}
+
+async function requestMicPermission() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+    });
+    stream.getTracks().forEach(t => t.stop());
+    micGranted = true;
+    updatePermUI();
+    setTimeout(() => goToStep(3), 500);
+  } catch (err) {
+    micGranted = false;
+    onbPermMic.classList.remove('pending');
+    onbPermMic.classList.add('error');
+    onbPermMic.querySelector('.perm-icon').textContent = '✗';
+    onbPermMic.querySelector('.perm-title').textContent = 'Microfone (negado)';
+    onbPermMic.querySelector('.perm-desc').textContent = `Erro: ${err.name} — ${err.message}`;
+    onbRequestMicBtn.disabled = false;
+    onbRequestMicBtn.textContent = 'Tentar novamente';
+  }
+}
+
+function renderVoices() {
+  onbVoiceOptions.innerHTML = VOICES.map(v => `
+    <label class="voice-option ${v.id === selectedVoiceId ? 'selected' : ''}" data-id="${v.id}">
+      <input type="radio" name="ttsVoice" value="${v.id}" ${v.id === selectedVoiceId ? 'checked' : ''} aria-label="${v.name} (${v.lang})">
+      <span class="voice-avatar" aria-hidden="true">${v.initial}</span>
+      <div class="voice-info">
+        <div class="voice-name">${v.name}</div>
+        <div class="voice-lang">${v.lang} • ${v.gender}</div>
+      </div>
+      <button type="button" class="voice-preview-btn" data-voice="${v.id}" aria-label="Ouvir prévia de ${v.name}">Ouvir</button>
+    </label>
+  `).join('');
+
+  document.querySelectorAll('.voice-option').forEach(opt => {
+    opt.addEventListener('click', (e) => {
+      if (e.target.classList.contains('voice-preview-btn')) return;
+      selectVoice(opt.dataset.id);
+    });
+    opt.querySelector('.voice-preview-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      previewVoice(e.target.dataset.voice);
+    });
+  });
+}
+
+function selectVoice(id) {
+  selectedVoiceId = id;
+  document.querySelectorAll('.voice-option').forEach(opt => opt.classList.toggle('selected', opt.dataset.id === id));
+  document.querySelectorAll('.voice-option input').forEach(inp => inp.checked = inp.value === id);
+  onbContinueVoiceBtn.disabled = false;
+}
+
+async function previewVoice(voiceId) {
+  const voice = VOICES.find(v => v.id === voiceId);
+  const btn = document.querySelector(`.voice-preview-btn[data-voice="${voiceId}"]`);
+  const original = btn.textContent;
+  btn.textContent = 'Tocando...';
+  btn.disabled = true;
+  try {
+    const res = await fetch(API + '/api/onboarding/preview-tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ voice: voiceId, text: `Olá, sou ${voice.name}. Esta é uma prévia da voz.` })
+    });
+    const data = await res.json();
+    if (data.audio_url) {
+      const audio = new Audio(API + data.audio_url);
+      await audio.play();
+      onbMicStatus.textContent = `🔊 Prévia de ${voice.name} tocada`;
+      onbMicStatus.className = 'mic-status success';
+    }
+  } catch (e) {
+    onbMicStatus.textContent = '❌ Erro: ' + e.message;
+    onbMicStatus.className = 'mic-status error';
+  } finally {
+    btn.textContent = original;
+    btn.disabled = false;
+  }
+}
+
+async function toggleMicTest() {
+  if (onbMicTestBtn.classList.contains('recording')) {
+    stopMicTest();
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+    });
+    audioContext = new AudioContext();
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 256;
+    const source = audioContext.createMediaStreamSource(stream);
+    source.connect(analyser);
+
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+    const chunks = [];
+    mediaRecorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(chunks, { type: 'audio/webm;codecs=opus' });
+      onbMicStatus.textContent = `✅ Gravado ${(blob.size/1024).toFixed(1)} KB — enviaria para STT local`;
+      onbMicStatus.className = 'mic-status success';
+      micTested = true;
+      onbFinishBtn.disabled = false;
+      stream.getTracks().forEach(t => t.stop());
+    };
+    mediaRecorder.start(100);
+    onbMicTestBtn.classList.add('recording');
+    onbMicTestBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="16" rx="2"/></svg>';
+    onbMicStatus.textContent = 'Gravando... fale agora';
+    onbMicStatus.className = 'mic-status recording';
+    animateVisualizer();
+  } catch (err) {
+    onbMicStatus.textContent = `❌ Erro: ${err.message}`;
+    onbMicStatus.className = 'mic-status error';
+  }
+}
+
+function stopMicTest() {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+  }
+  if (audioContext) {
+    audioContext.close();
+    audioContext = null;
+  }
+  if (animationFrame) {
+    cancelAnimationFrame(animationFrame);
+    animationFrame = null;
+  }
+  onbMicTestBtn.classList.remove('recording');
+  onbMicTestBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>';
+  resetVisualizer();
+}
+
+function resetMicTest() {
+  stopMicTest();
+  micTested = false;
+  onbFinishBtn.disabled = true;
+  onbMicStatus.textContent = 'Pressione o botão e diga algo...';
+  onbMicStatus.className = 'mic-status';
+  resetVisualizer();
+}
+
+function animateVisualizer() {
+  if (!analyser) return;
+  const data = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(data);
+  const bars = onbMicVisualizer.querySelectorAll('.mic-bar');
+  let sum = 0;
+  for (let i = 0; i < 20; i++) sum += data[i] || 0;
+  const avg = sum / 20;
+  const level = Math.min(avg / 128, 1);
+  bars.forEach((bar, i) => {
+    const variation = 0.3 + Math.random() * 0.7;
+    bar.style.height = `${Math.min(level * variation * 100, 100)}%`;
+  });
+  animationFrame = requestAnimationFrame(animateVisualizer);
+}
+
+function resetVisualizer() {
+  const bars = onbMicVisualizer.querySelectorAll('.mic-bar');
+  bars.forEach(bar => bar.style.height = '15%');
+}
+
+function updateSummary() {
+  const voice = VOICES.find(v => v.id === selectedVoiceId);
+  onbSummaryMic.textContent = micGranted ? 'Concedido ✓' : 'Não concedido';
+  onbSummaryVoice.textContent = voice ? `${voice.name} (${voice.lang})` : '—';
+  onbSummaryTest.textContent = micTested ? 'OK ✓' : 'Pulado';
+}
+
+function openOnboarding() {
+  if (checkOnboardingComplete()) return;
+  onboardingBackdrop.classList.add('open');
+  goToStep(1);
+}
+
+function closeOnboarding() {
+  onboardingBackdrop.classList.remove('open');
+}
+
+// Event listeners
+onbStartBtn.addEventListener('click', () => goToStep(2));
+onbRequestMicBtn.addEventListener('click', requestMicPermission);
+onbSkipMicBtn.addEventListener('click', () => { micGranted = false; updatePermUI(); goToStep(3); });
+onbContinueVoiceBtn.addEventListener('click', () => goToStep(4));
+onbMicTestBtn.addEventListener('click', toggleMicTest);
+onbFinishBtn.addEventListener('click', () => { saveOnboarding(); goToStep(5); });
+onbOpenAppBtn.addEventListener('click', () => { closeOnboarding(); });
+
+skipLinks.forEach((link, i) => {
+  link.addEventListener('click', (e) => { e.preventDefault(); goToStep(i + 2); });
+});
+
+onbMicTestBtn.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleMicTest(); }
+});
+
+// Initialize onboarding check
+if (!checkOnboardingComplete()) {
+  setTimeout(openOnboarding, 100);
+}
+
+// ── Design Canvas ──
+const designBtn = document.getElementById('designBtn');
+const designCanvasModal = document.getElementById('designCanvasModal');
+const designCanvasClose = document.getElementById('designCanvasClose');
+const designCanvasIframe = document.getElementById('designCanvasIframe');
+
+function openDesignCanvas() {
+  designCanvasModal.classList.remove('hidden');
+  // Initialize iframe with design canvas content
+  if (!designCanvasIframe.srcdoc) {
+    designCanvasIframe.srcdoc = getDesignCanvasHTML();
+  }
+}
+
+function closeDesignCanvas() {
+  designCanvasModal.classList.add('hidden');
+}
+
+function getDesignCanvasHTML() {
+  // Return the full design canvas HTML from the canvas.js module
+  // For now, load from the bridge or use embedded version
+  return `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Loading Design Canvas...</title></head><body style="font-family:system-ui;padding:20px;color:var(--fg);">
+  <div style="text-align:center;padding:60px;">
+    <div style="font-size:48px;">🎨</div>
+    <h2 style="margin:16px 0 8px;">Design Canvas</h2>
+    <p style="color:var(--muted);">Carregando protótipo...</p>
+    <div style="margin-top:20px;color:var(--accent);">░░░░░░░░░░</div>
+  </div>
+  <script>
+    // Load the actual canvas from the module
+    const script = document.createElement('script');
+    script.src = '/design-canvas/canvas.js';
+    script.onload = () => {
+      if (window.DesignCanvas) {
+        window.canvas = new DesignCanvas({ container: document.body });
+      }
+    };
+    document.head.appendChild(script);
+  <\/script>
+</body></html>`;
+}
+
+designBtn.addEventListener('click', openDesignCanvas);
+designCanvasClose.addEventListener('click', closeDesignCanvas);
+designCanvasModal.addEventListener('click', (e) => {
+  if (e.target === designCanvasModal) closeDesignCanvas();
+});
+
+// Initialize DesignCanvas in modal iframe
+let designCanvasInstance = null;
+async function initDesignCanvas() {
+  if (designCanvasIframe.srcdoc) return; // already initialized
+  
+  // Load design-canvas.js module
+  const script = document.createElement('script');
+  script.type = 'module';
+  script.src = '/design-canvas/canvas.js';
+  document.head.appendChild(script);
+  
+  // Wait for module to load
+  await new Promise(resolve => {
+    const check = () => {
+      if (window.DesignCanvas) resolve();
+      else setTimeout(check, 50);
+    };
+    check();
+  });
+  
+  // Initialize DesignCanvas inside iframe via MessageChannel
+  designCanvasIframe.srcdoc = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Design Canvas</title></head>
+<body style="margin:0;font-family:system-ui;background:var(--hds-bg,#030712);color:var(--hds-fg);">
+  <div id="canvas-root" data-canvas-root style="height:100vh;">
+    <div class="canvas-drop-zone" data-drop-zone style="display:flex;align-items:center;justify-content:center;height:100%;border:2px dashed var(--hds-border);border-radius:8px;color:var(--hds-muted);font-size:14px;">
+      Drop components here or click + to add
+    </div>
+  </div>
+  <script>
+    // MessageChannel will be established by parent
+    window.addEventListener('message', (event) => {
+      if (event.data.type === 'INIT_CHANNEL' && event.ports[0]) {
+        const port = event.ports[0];
+        port.onmessage = (e) => handleMessage(e.data);
+        port.start();
+        port.postMessage({ type: 'READY' });
+      }
+    });
+    
+    function handleMessage(data) {
+      switch (data.type) {
+        case 'UPDATE_CONTENT':
+          document.getElementById('canvas-root').innerHTML = data.html;
+          setupCanvas();
+          break;
+        case 'APPLY_TOKENS':
+          designTokens = data.tokens;
+          applyTokensToRoot();
+          break;
+        case 'SET_THEME':
+          document.documentElement.setAttribute('data-theme', data.theme);
+          break;
+      }
+    }
+    
+    let designTokens = {}, componentRegistry = {};
+    function applyTokensToRoot() {
+      const root = document.documentElement;
+      Object.entries(designTokens).forEach(([name, token]) => {
+        if (token.type === 'color') {
+          root.style.setProperty('--hds-' + name.replace(/[^a-z0-9]/gi, '-'), token.value);
+        }
+      });
+    }
+    
+    function setupCanvas() {
+      const root = document.getElementById('canvas-root');
+      root.querySelectorAll('[data-canvas-element], [data-drop-zone]').forEach(el => {
+        el.addEventListener('click', (e) => { e.stopPropagation(); selectElement(el); });
+        el.addEventListener('dragover', (e) => { e.preventDefault(); if (el.dataset.dropZone) el.classList.add('active'); });
+        el.addEventListener('dragleave', (e) => { if (el.dataset.dropZone) el.classList.remove('active'); });
+        el.addEventListener('drop', (e) => {
+          e.preventDefault(); if (el.dataset.dropZone) el.classList.remove('active');
+          const componentType = e.dataTransfer.getData('text/component-type');
+          if (componentType) insertComponent(componentType, el);
+        });
+      });
+    }
+    
+    function selectElement(el) {
+      // Remove previous selection
+      document.querySelectorAll('.selected').forEach(s => s.classList.remove('selected'));
+      el.classList.add('selected');
+      // Notify parent
+      if (port) port.postMessage({ type: 'ELEMENT_SELECTED', element: el.outerHTML });
+    }
+    
+    function insertComponent(type, container) {
+      // Simplified - in real impl, use componentRegistry
+      const el = document.createElement('div');
+      el.dataset.canvasElement = true;
+      el.innerHTML = '<div style="padding:20px;border:1px solid var(--hds-border);border-radius:8px;">' + type + '</div>';
+      container.appendChild(el);
+      setupCanvas();
+      if (port) port.postMessage({ type: 'ELEMENT_UPDATED', html: document.getElementById('canvas-root').innerHTML });
+    }
+  <\\/script>
+</body></html>`;
+  
+  // Wait for iframe to load and establish MessageChannel
+  await new Promise(resolve => {
+    designCanvasIframe.onload = () => {
+      // Send MessageChannel port to iframe
+      const channel = new MessageChannel();
+      designCanvasInstance = {
+        port: channel.port1,
+        send: (msg) => channel.port1.postMessage(msg)
+      };
+      channel.port1.onmessage = (e) => handleCanvasMessage(e.data);
+      designCanvasIframe.contentWindow.postMessage(
+        { type: 'INIT_CHANNEL', designTokens: getDesignTokens(), componentRegistry: getComponentRegistry() },
+        '*',
+        [channel.port2]
+      );
+      resolve();
+    };
+  });
+}
+
+function handleCanvasMessage(data) {
+  if (data.type === 'READY') {
+    console.log('DesignCanvas ready');
+  } else if (data.type === 'ELEMENT_UPDATED') {
+    // Canvas content changed - could auto-save or sync
+    lastCanvasHTML = data.html;
+  } else if (data.type === 'ELEMENT_SELECTED') {
+    // Element selected in canvas - show properties
+    showCanvasProperties(data.element);
+  }
+}
+
+function getDesignTokens() {
+  // Extract CSS custom properties as design tokens
+  const tokens = {};
+  const styles = getComputedStyle(document.documentElement);
+  for (let i = 0; i < styles.length; i++) {
+    const prop = styles[i];
+    if (prop.startsWith('--hds-') || prop.startsWith('--accent') || prop.startsWith('--bg') || prop.startsWith('--fg') || prop.startsWith('--muted') || prop.startsWith('--card') || prop.startsWith('--border') || prop.startsWith('--radius')) {
+      tokens[prop.replace('--hds-', '').replace('--', '')] = { type: 'color', value: styles.getPropertyValue(prop).trim() };
+    }
+  }
+  return tokens;
+}
+
+function getComponentRegistry() {
+  return {
+    button: { name: 'Button', template: '<button data-canvas-element style="padding:8px 16px;border-radius:6px;background:var(--hds-accent);color:var(--hds-bg);border:none;cursor:pointer;">Button</button>' },
+    card: { name: 'Card', template: '<div data-canvas-element style="padding:16px;border:1px solid var(--hds-border);border-radius:8px;background:var(--hds-card);">Card content</div>' },
+    input: { name: 'Input', template: '<input data-canvas-element type="text" placeholder="Enter text..." style="padding:8px 12px;border:1px solid var(--hds-border);border-radius:6px;background:var(--hds-bg);color:var(--hds-fg);width:100%;">' },
+    heading: { name: 'Heading', template: '<h2 data-canvas-element style="margin:0 0 8px;font-size:1.5rem;font-weight:600;">Heading</h2>' },
+    text: { name: 'Text', template: '<p data-canvas-element style="margin:0;color:var(--hds-fg);">Paragraph text</p>' },
+    image: { name: 'Image', template: '<div data-canvas-element style="aspect-ratio:16/9;background:var(--hds-border);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--hds-muted);">Image</div>' },
+    container: { name: 'Container', template: '<div data-canvas-element data-drop-zone style="padding:16px;border:2px dashed var(--hds-border);border-radius:8px;min-height:100px;">Drop zone</div>' },
+    grid: { name: 'Grid', template: '<div data-canvas-element style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">' + Array(3).fill('<div data-canvas-element data-drop-zone style="padding:16px;border:2px dashed var(--hds-border);border-radius:8px;min-height:80px;">Cell</div>').join('') + '</div>' }
+  };
+}
+
+let lastCanvasHTML = '';
+
+// Send canvas snapshot to chat
+async function sendCanvasToChat() {
+  if (!designCanvasInstance) {
+    alert('Design Canvas not initialized yet');
+    return;
+  }
+  
+  designCanvasInstance.send({ type: 'GET_CONTENT' });
+  
+  // Wait for response
+  setTimeout(() => {
+    if (lastCanvasHTML) {
+      const snapshot = 'data:image/svg+xml;base64,' + btoa(`
+        <svg xmlns="http://www.w3.org/2000/svg" width="800" height="600">
+          <foreignObject width="100%" height="100%">
+            <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:system-ui;padding:20px;background:#030712;color:#f5f5f0;">
+              ${lastCanvasHTML}
+            </div>
+          </foreignObject>
+        </svg>
+      `);
+      
+      sendMessage('[Canvas Snapshot] Protótipo compartilhado do Design Canvas', null, { canvasSnapshot: snapshot });
+    }
+  }, 300);
+}
+
+// Override sendMessage to accept meta
+const originalSendMessage = sendMessage;
+window.sendMessage = async function(message, audioBlob = null, meta = {}) {
+  if (!message.trim() && !audioBlob && !meta.canvasSnapshot) return;
+  setUIBusy(true);
+  try {
+    let res;
+    if (audioBlob) {
+      const fd = new FormData();
+      fd.append('audio', audioBlob, 'input.webm');
+      if (sessionId) fd.append('session_id', sessionId);
+      res = await fetch(API + '/api/chat', { method: 'POST', body: fd });
+    } else {
+      const body = { message, session_id: sessionId };
+      if (meta.canvasSnapshot) body.canvas_snapshot = meta.canvasSnapshot;
+      res = await fetch(API + '/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+    }
+    const data = await res.json();
+    if (data.session_id) {
+      sessionId = data.session_id;
+      localStorage.setItem('hermes_session_id', sessionId);
+      setSessionBadge();
+    }
+    if (audioBlob && data.user_text) addMsg('user', data.user_text);
+    else if (!audioBlob) addMsg('user', message);
+    addMsg('agent', data.text || '(sem resposta)', data.audio_url, meta);
+  } catch (e) {
+    addMsg('agent', `[erro] ${e.message}`);
+  } finally {
+    setUIBusy(false);
+    input.value = '';
+    input.style.height = 'auto';
+  }
+};
+
+function showCanvasProperties(elementHTML) {
+  // Show properties panel in modal
+  console.log('Element selected:', elementHTML);
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    toggleSidebar(false);
+    closeSettingsModal();
+    closeDesignCanvas();
+  }
+});
 </script>
 </body>
 </html>

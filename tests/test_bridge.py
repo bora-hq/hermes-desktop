@@ -32,29 +32,53 @@ spec.loader.exec_module(bridge)
 def mock_externals(monkeypatch):
     """Mock hermes + whisper + tts so tests don't hit the real CLI or load models."""
     counter = {"n": 0}
+    # In-memory settings store for tests
+    settings_store = {"current": bridge.DEFAULT_SETTINGS.copy()}
 
     def fake_run_hermes(message, session_id=None):
         counter["n"] += 1
         new_sid = session_id or f"sid_{counter['n']:04d}"
         return f"echo: {message}", new_sid
 
-    def fake_stt(path):
+    def fake_stt(path, language="pt"):
         return f"transcribed:{Path(path).name}"
 
     def fake_tts(text):
         if not text.strip():
             return None
-        # Write a tiny fake mp3 file with a hex-only id (matches production regex)
         import uuid as _uuid
         audio_id = _uuid.uuid4().hex[:12]
         mp3 = bridge.AUDIO_CACHE / f"{audio_id}.mp3"
-        # Real MP3 sync word (0xFF 0xE0) + minimal padding
         mp3.write_bytes(b"\xff\xe0" + b"\x00" * 100)
         return str(mp3)
+
+    def fake_tts_with_voice(text, voice):
+        return fake_tts(text)
+
+    def fake_save_settings(settings):
+        # Validate keys
+        valid_keys = set(bridge.DEFAULT_SETTINGS.keys())
+        filtered = {k: v for k, v in settings.items() if k in valid_keys}
+        settings_store["current"].update(filtered)
+        return True
+
+    def fake_load_settings():
+        return settings_store["current"].copy()
+
+    def fake_apply_settings(settings):
+        return {"whisperReloaded": False}
+
+    def fake_reload_whisper(model_name):
+        pass
 
     monkeypatch.setattr(bridge, "run_hermes", fake_run_hermes)
     monkeypatch.setattr(bridge, "speech_to_text", fake_stt)
     monkeypatch.setattr(bridge, "text_to_speech", fake_tts)
+    monkeypatch.setattr(bridge, "text_to_speech_with_voice", fake_tts_with_voice)
+    monkeypatch.setattr(bridge, "save_settings", fake_save_settings)
+    monkeypatch.setattr(bridge, "load_settings", fake_load_settings)
+    monkeypatch.setattr(bridge, "apply_settings", fake_apply_settings)
+    monkeypatch.setattr(bridge, "reload_whisper", fake_reload_whisper)
     return counter
 
 
@@ -122,8 +146,9 @@ def test_options_preflight(server):
 
 
 def test_unknown_route_get_returns_405(server):
+    # Now unknown routes return 404 (not 405) since we have explicit GET-allowed endpoints
     code, _, _ = http(server, "GET", "/api/nope")
-    assert code == 405
+    assert code == 404
 
 
 def test_unknown_route_post_returns_404(server):
@@ -265,3 +290,102 @@ def test_whisper_singleton(monkeypatch):
     assert a is b is c
     assert a.sentinel is sentinel
     assert calls["n"] == 1
+
+
+# ── Settings tests ──
+
+def test_settings_get(server):
+    code, body, _ = http(server, "GET", "/api/settings")
+    assert code == 200
+    j = json.loads(body)
+    assert "settings" in j
+    assert "ttsVoice" in j["settings"]
+    assert "whisperModel" in j["settings"]
+    assert "availableVoices" in j
+    assert len(j["availableVoices"]) >= 5
+    assert "availableModels" in j
+    assert len(j["availableModels"]) >= 5
+    assert "availableLanguages" in j
+
+
+def test_settings_post_valid(server):
+    code, body, _ = http(server, "POST", "/api/settings", {
+        "ttsVoice": "pt-BR-FranciscaNeural",
+        "whisperModel": "small",
+        "sttLanguage": "en",
+    })
+    assert code == 200
+    j = json.loads(body)
+    assert j["ok"] is True
+    assert j["settings"]["ttsVoice"] == "pt-BR-FranciscaNeural"
+    assert j["settings"]["whisperModel"] == "small"
+    assert j["settings"]["sttLanguage"] == "en"
+
+
+def test_settings_post_invalid_key_ignored(server):
+    # Invalid keys should be filtered out, not cause error
+    code, body, _ = http(server, "POST", "/api/settings", {
+        "ttsVoice": "pt-BR-FranciscaNeural",
+        "invalidKey": "should be ignored",
+    })
+    assert code == 200
+    j = json.loads(body)
+    assert j["ok"] is True
+    assert "invalidKey" not in j["settings"]
+
+
+def test_settings_preview_tts(server):
+    code, body, _ = http(server, "POST", "/api/settings/preview-tts", {
+        "voice": "pt-BR-FranciscaNeural",
+        "text": "Teste de voz",
+    })
+    assert code == 200
+    j = json.loads(body)
+    assert "audio_url" in j
+    assert j["audio_url"].startswith("/api/audio/")
+
+
+# ── Onboarding tests ──
+
+def test_onboarding_voices(server):
+    code, body, _ = http(server, "GET", "/api/onboarding/voices")
+    assert code == 200
+    j = json.loads(body)
+    assert "voices" in j
+    assert len(j["voices"]) >= 5
+    voice = j["voices"][0]
+    assert "id" in voice
+    assert "name" in voice
+    assert "lang" in voice
+    assert "gender" in voice
+
+
+def test_onboarding_preview_tts(server):
+    code, body, _ = http(server, "POST", "/api/onboarding/preview-tts", {
+        "voice": "pt-BR-FranciscaNeural",
+        "text": "Olá onboarding",
+    })
+    assert code == 200
+    j = json.loads(body)
+    assert "audio_url" in j
+
+
+def test_onboarding_test_mic(server):
+    boundary = "----testmic"
+    fake_audio = b"\x1a\x45\xdf\xa3" + b"\x00" * 200
+    body = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="language"\r\n\r\n'
+        f"pt\r\n"
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="audio"; filename="mic.webm"\r\n'
+        f"Content-Type: audio/webm\r\n\r\n"
+    ).encode() + fake_audio + f"\r\n--{boundary}--\r\n".encode()
+
+    code, resp, _ = http(
+        server, "POST", "/api/onboarding/test-mic", body,
+        {"Content-Type": f"multipart/form-data; boundary={boundary}"},
+    )
+    assert code == 200
+    j = json.loads(resp)
+    assert "text" in j or "stt_error" in j

@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hermes Voice — Settings Modal</title>
+<style>
+:root {
+  --bg: #030712;
+  --fg: #f0f4f8;
+  --muted: #64748b;
+  --accent: #ff8c00;
+  --accent-dim: #cc7000;
+  --card: rgba(15, 23, 42, 0.8);
+  --border: rgba(100, 116, 139, 0.3);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --focus-ring: 0 0 0 3px rgba(255, 140, 0, 0.2);
+  --shadow: 0 12px 32px rgba(0,0,0,0.5);
+  --danger: #ef4444;
+  --success: #22c55e;
+  --warning: #f59e0b;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f8fafc;
+    --fg: #0f172a;
+    --muted: #64748b;
+    --accent: #ea580c;
+    --accent-dim: #c2410c;
+    --card: rgba(255, 255, 255, 0.9);
+    --border: rgba(15, 23, 42, 0.15);
+  }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; font-family: Georgia, serif; background: var(--bg); color: var(--fg); }
+body { display: flex; align-items: center; justify-content: center; padding: 24px; min-height: 100vh; }
+
+/* Backdrop */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* Modal */
+.modal {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  animation: slideUp 0.25s ease;
+}
+@keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-header h1 { margin: 0; font-size: 1.1rem; font-weight: 400; letter-spacing: 0.02em; }
+.modal-close {
+  background: transparent; border: none; color: var(--muted);
+  width: 36px; height: 36px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: background 0.15s, color 0.15s;
+}
+.modal-close:hover { background: var(--card); color: var(--fg); }
+.modal-close:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+.modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-footer {
+  display: flex; justify-content: flex-end; gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  background: var(--card);
+}
+
+/* Sections */
+.settings-section { margin-bottom: 28px; }
+.settings-section:last-child { margin-bottom: 0; }
+.section-title {
+  font-size: 0.75rem; font-family: ui-monospace, monospace;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--muted); margin: 0 0 16px;
+}
+
+/* Form */
+.field { margin-bottom: 16px; }
+.field-label {
+  display: block; font-size: 0.9rem; margin-bottom: 6px; color: var(--fg);
+}
+.field-hint { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+
+.select, .input {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 0.95rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.select:focus, .input:focus {
+  outline: none; border-color: var(--accent); box-shadow: var(--focus-ring);
+}
+.select option { background: var(--bg); color: var(--fg); }
+
+/* Toggle */
+.toggle-row { display: flex; align-items: center; justify-content: space-between; }
+.toggle-label { display: flex; flex-direction: column; gap: 2px; }
+.toggle-title { font-weight: 500; }
+.toggle-desc { font-size: 0.8rem; color: var(--muted); }
+
+.toggle {
+  position: relative; width: 48px; height: 28px;
+  background: var(--border); border-radius: 999px;
+  border: none; cursor: pointer;
+  transition: background 0.2s;
+}
+.toggle:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.toggle.on { background: var(--accent); }
+.toggle::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 24px; height: 24px; background: var(--fg);
+  border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  transition: transform 0.2s ease;
+}
+.toggle.on::after { transform: translateX(20px); }
+
+/* Voice Preview */
+.voice-preview {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px; background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); margin-top: 8px;
+}
+.voice-preview-btn {
+  background: var(--accent); color: #0a0a0b; border: none;
+  border-radius: var(--radius-sm); padding: 10px 16px;
+  font-family: inherit; font-size: 0.9rem; font-weight: 500;
+  cursor: pointer; transition: background 0.15s, transform 0.05s;
+}
+.voice-preview-btn:hover { background: #d4b88a; }
+.voice-preview-btn:active { transform: scale(0.98); }
+.voice-preview-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.voice-preview-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.voice-preview-status { font-size: 0.8rem; color: var(--muted); }
+
+/* Mic Test */
+.mic-test {
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 16px; background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.mic-test-header { display: flex; align-items: center; justify-content: space-between; }
+.mic-level {
+  flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;
+  margin: 0 16px; position: relative;
+}
+.mic-level-bar {
+  height: 100%; width: 0%; background: var(--accent);
+  border-radius: 4px; transition: width 0.05s linear;
+}
+.mic-test-btn {
+  background: var(--accent); color: #0a0a0b; border: none;
+  border-radius: var(--radius-sm); padding: 12px 20px;
+  font-family: inherit; font-size: 0.95rem; font-weight: 500;
+  cursor: pointer; transition: background 0.15s, transform 0.05s;
+  display: flex; align-items: center; gap: 8px;
+}
+.mic-test-btn:hover { background: #d4b88a; }
+.mic-test-btn:active { transform: scale(0.98); }
+.mic-test-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.mic-test-btn.recording { background: #c0392b; animation: recPulse 1s infinite; }
+@keyframes recPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(192,57,43,0.5); } 50% { box-shadow: 0 0 0 10px rgba(192,57,43,0); } }
+.mic-test-result { font-size: 0.85rem; color: var(--muted); min-height: 1.2em; }
+.mic-test-result.ok { color: var(--success); }
+.mic-test-result.err { color: var(--danger); }
+
+/* Buttons */
+.btn {
+  background: var(--accent); color: #0a0a0b; border: none;
+  border-radius: var(--radius-sm); padding: 12px 20px;
+  font-family: inherit; font-size: 0.95rem; font-weight: 500;
+  cursor: pointer; transition: background 0.15s, transform 0.05s;
+}
+.btn:hover { background: #d4b88a; }
+.btn:active { transform: scale(0.98); }
+.btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-secondary { background: transparent; color: var(--fg); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--card); border-color: var(--accent); }
+.btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+.btn-danger:hover { background: rgba(192,57,43,0.1); }
+
+/* Danger Zone */
+.danger-zone {
+  border-top: 2px solid var(--danger);
+  padding-top: 20px;
+  margin-top: 12px;
+}
+.danger-zone .section-title { color: var(--danger); }
+.danger-zone-content { display: flex; flex-direction: column; gap: 16px; }
+
+/* Responsive */
+@media (max-width: 480px) {
+  .modal { max-height: 100vh; border-radius: 0; }
+  .modal-body { padding: 16px; }
+  .modal-footer { flex-direction: column-reverse; }
+  .btn { width: 100%; }
+}
+</style>
+</head>
+<body>
+<div class="modal-backdrop" id="backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="modal">
+    <header class="modal-header">
+      <h1 id="modal-title">Configurações</h1>
+      <button class="modal-close" id="closeBtn" aria-label="Fechar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </header>
+    <div class="modal-body">
+      <!-- TTS Voice -->
+      <section class="settings-section">
+        <h2 class="section-title">Voz (TTS)</h2>
+        <div class="field">
+          <label class="field-label" for="ttsVoice">Voz</label>
+          <select class="select" id="ttsVoice" aria-label="Selecionar voz TTS"></select>
+          <p class="field-hint">Vozes Microsoft Edge TTS. Português do Brasil por padrão.</p>
+        </div>
+        <div class="voice-preview">
+          <button class="voice-preview-btn" id="previewBtn" disabled>Ouvir prévia</button>
+          <span class="voice-preview-status" id="previewStatus">Selecione uma voz</span>
+        </div>
+      </section>
+
+      <!-- STT / Whisper -->
+      <section class="settings-section">
+        <h2 class="section-title">Transcrição (STT)</h2>
+        <div class="field">
+          <label class="field-label" for="whisperModel">Modelo Whisper</label>
+          <select class="select" id="whisperModel" aria-label="Selecionar modelo Whisper">
+            <option value="tiny">tiny (~39 MB) — mais rápido, menos preciso</option>
+            <option value="base" selected>base (~74 MB) — equilibrado</option>
+            <option value="small">small (~244 MB) — mais preciso</option>
+            <option value="medium">medium (~769 MB) — muito preciso</option>
+            <option value="large-v3">large-v3 (~1.5 GB) — máximo precisão</option>
+          </select>
+          <p class="field-hint">Modelos maiores = mais VRAM/RAM e latência maior. <code>base</code> recomendado para CPU.</p>
+        </div>
+        <div class="field">
+          <label class="field-label" for="sttLanguage">Idioma da transcrição</label>
+          <select class="select" id="sttLanguage" aria-label="Idioma STT">
+            <option value="pt">Português</option>
+            <option value="en">English</option>
+            <option value="es">Español</option>
+            <option value="fr">Français</option>
+            <option value="auto">Detecção automática</option>
+          </select>
+        </div>
+      </section>
+
+      <!-- Microphone Test -->
+      <section class="settings-section">
+        <h2 class="section-title">Teste de Microfone</h2>
+        <div class="mic-test" id="micTest">
+          <div class="mic-test-header">
+            <span>Nível de entrada</span>
+            <div class="mic-level" aria-hidden="true"><div class="mic-level-bar" id="micLevelBar"></div></div>
+          </div>
+          <button class="mic-test-btn" id="micTestBtn" aria-label="Iniciar teste de microfone">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+            Iniciar teste
+          </button>
+          <p class="mic-test-result" id="micTestResult" aria-live="polite">Clique em "Iniciar teste" e fale algo...</p>
+        </div>
+      </section>
+
+      <!-- General -->
+      <section class="settings-section">
+        <h2 class="section-title">Geral</h2>
+        <div class="field toggle-row">
+          <div class="toggle-label">
+            <span class="toggle-title">Iniciar bridge ao abrir app</span>
+            <span class="toggle-desc">Sobe servidor local (porta 8420) automaticamente</span>
+          </div>
+          <button class="toggle on" id="toggleAutoStart" aria-pressed="true" aria-label="Iniciar bridge automaticamente"></button>
+        </div>
+        <div class="field toggle-row">
+          <div class="toggle-label">
+            <span class="toggle-title">Salvar áudio localmente</span>
+            <span class="toggle-desc">Mantém MP3s em cache para replay offline</span>
+          </div>
+          <button class="toggle on" id="toggleSaveAudio" aria-pressed="true" aria-label="Salvar áudio localmente"></button>
+        </div>
+        <div class="field toggle-row">
+          <div class="toggle-label">
+            <span class="toggle-title">Tema escuro forçado</span>
+            <span class="toggle-desc">Ignora preferência do sistema</span>
+          </div>
+          <button class="toggle" id="toggleDarkMode" aria-pressed="false" aria-label="Tema escuro forçado"></button>
+        </div>
+      </section>
+
+      <!-- Danger Zone -->
+      <section class="settings-section danger-zone">
+        <h2 class="section-title">Zona de Perigo</h2>
+        <div class="danger-zone-content">
+          <div class="field">
+            <button class="btn btn-danger" id="clearCacheBtn">Limpar cache de áudio</button>
+            <p class="field-hint">Remove todos os MP3s gerados em <code>/tmp/hermes-audio/</code></p>
+          </div>
+          <div class="field">
+            <button class="btn btn-danger" id="resetSettingsBtn">Restaurar padrões</button>
+            <p class="field-hint">Reseta todas as configurações acima</p>
+          </div>
+        </div>
+      </section>
+    </div>
+    <footer class="modal-footer">
+      <button class="btn btn-secondary" id="cancelBtn">Cancelar</button>
+      <button class="btn" id="saveBtn">Salvar</button>
+    </footer>
+  </div>
+</div>
+
+<script>
+// ── Mock Data ──
+const TTS_VOICES = [
+  { id: 'pt-BR-AntonioNeural', label: 'Antônio (PT-BR)', lang: 'pt-BR', gender: 'Male' },
+  { id: 'pt-BR-FranciscaNeural', label: 'Francisca (PT-BR)', lang: 'pt-BR', gender: 'Female' },
+  { id: 'pt-BR-ThalitaMultilingualNeural', label: 'Thalita Multilíngue (PT-BR)', lang: 'pt-BR', gender: 'Female' },
+  { id: 'en-US-GuyNeural', label: 'Guy (EN-US)', lang: 'en-US', gender: 'Male' },
+  { id: 'en-US-JennyNeural', label: 'Jenny (EN-US)', lang: 'en-US', gender: 'Female' },
+  { id: 'es-ES-AlvaroNeural', label: 'Álvaro (ES-ES)', lang: 'es-ES', gender: 'Male' },
+  { id: 'fr-FR-HenriNeural', label: 'Henri (FR-FR)', lang: 'fr-FR', gender: 'Male' },
+];
+
+// ── State ──
+let state = {
+  ttsVoice: 'pt-BR-AntonioNeural',
+  whisperModel: 'base',
+  sttLanguage: 'pt',
+  autoStartBridge: true,
+  saveAudio: true,
+  forceDarkMode: false,
+};
+let mediaRecorder = null;
+let audioContext = null;
+let analyser = null;
+let animationFrame = null;
+
+// ── DOM ──
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
+
+const backdrop = $('#backdrop');
+const closeBtn = $('#closeBtn');
+const cancelBtn = $('#cancelBtn');
+const saveBtn = $('#saveBtn');
+
+// Form controls
+const ttsVoiceSel = $('#ttsVoice');
+const whisperModelSel = $('#whisperModel');
+const sttLanguageSel = $('#sttLanguage');
+const toggleAutoStart = $('#toggleAutoStart');
+const toggleSaveAudio = $('#toggleSaveAudio');
+const toggleDarkMode = $('#toggleDarkMode');
+const clearCacheBtn = $('#clearCacheBtn');
+const resetSettingsBtn = $('#resetSettingsBtn');
+
+// Voice preview
+const previewBtn = $('#previewBtn');
+const previewStatus = $('#previewStatus');
+
+// Mic test
+const micTestBtn = $('#micTestBtn');
+const micLevelBar = $('#micLevelBar');
+const micTestResult = $('#micTestResult');
+
+// ── Init ──
+function init() {
+  populateVoices();
+  loadState();
+  bindEvents();
+  applyTheme();
+}
+
+function populateVoices() {
+  ttsVoiceSel.innerHTML = TTS_VOICES.map(v =>
+    `<option value="${v.id}" ${v.id === state.ttsVoice ? 'selected' : ''}>${v.label}</option>`
+  ).join('');
+  previewBtn.disabled = false;
+  previewStatus.textContent = 'Pressione "Ouvir prévia"';
+}
+
+function loadState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('hermes-voice-settings') || '{}');
+    state = { ...state, ...saved };
+    syncUI();
+  } catch (e) { console.warn('Failed to load settings', e); }
+}
+
+function saveState() {
+  try {
+    localStorage.setItem('hermes-voice-settings', JSON.stringify(state));
+  } catch (e) { console.warn('Failed to save settings', e); }
+}
+
+function syncUI() {
+  ttsVoiceSel.value = state.ttsVoice;
+  whisperModelSel.value = state.whisperModel;
+  sttLanguageSel.value = state.sttLanguage;
+  setToggle(toggleAutoStart, state.autoStartBridge);
+  setToggle(toggleSaveAudio, state.saveAudio);
+  setToggle(toggleDarkMode, state.forceDarkMode);
+  applyTheme();
+}
+
+function setToggle(btn, on) {
+  btn.classList.toggle('on', on);
+  btn.setAttribute('aria-pressed', on);
+}
+
+function applyTheme() {
+  if (state.forceDarkMode) {
+    document.documentElement.style.setProperty('--bg', '#0a0a0b');
+    document.documentElement.style.setProperty('--fg', '#f5f5f0');
+    document.documentElement.style.setProperty('--muted', '#888');
+    document.documentElement.style.setProperty('--accent', '#c4a97d');
+    document.documentElement.style.setProperty('--card', 'rgba(255,255,255,0.04)');
+    document.documentElement.style.setProperty('--border', 'rgba(255,255,255,0.08)');
+  } else {
+    // Reset to CSS defaults (media query handles light)
+    document.documentElement.style.removeProperty('--bg');
+    document.documentElement.style.removeProperty('--fg');
+    document.documentElement.style.removeProperty('--muted');
+    document.documentElement.style.removeProperty('--accent');
+    document.documentElement.style.removeProperty('--card');
+    document.documentElement.style.removeProperty('--border');
+  }
+}
+
+// ── Events ──
+function bindEvents() {
+  // Close
+  [closeBtn, cancelBtn, backdrop].forEach(el => {
+    el.addEventListener('click', (e) => { if (e.target === backdrop || e.currentTarget === closeBtn || e.currentTarget === cancelBtn) close(); });
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+
+  // Form changes
+  ttsVoiceSel.addEventListener('change', () => { state.ttsVoice = ttsVoiceSel.value; previewStatus.textContent = 'Voz alterada — pressione "Ouvir prévia"'; });
+  whisperModelSel.addEventListener('change', () => { state.whisperModel = whisperModelSel.value; });
+  sttLanguageSel.addEventListener('change', () => { state.sttLanguage = sttLanguageSel.value; });
+
+  // Toggles
+  toggleAutoStart.addEventListener('click', () => { state.autoStartBridge = !state.autoStartBridge; setToggle(toggleAutoStart, state.autoStartBridge); });
+  toggleSaveAudio.addEventListener('click', () => { state.saveAudio = !state.saveAudio; setToggle(toggleSaveAudio, state.saveAudio); });
+  toggleDarkMode.addEventListener('click', () => { state.forceDarkMode = !state.forceDarkMode; setToggle(toggleDarkMode, state.forceDarkMode); applyTheme(); });
+
+  // Voice preview (mock - would call bridge /api/chat with voice:true)
+  previewBtn.addEventListener('click', async () => {
+    previewBtn.disabled = true;
+    previewBtn.textContent = 'Gerando...';
+    previewStatus.textContent = 'Sintetizando áudio...';
+    // Simulate TTS call
+    await new Promise(r => setTimeout(r, 800));
+    previewBtn.disabled = false;
+    previewBtn.textContent = 'Ouvir prévia';
+    previewStatus.textContent = '✅ Prévia tocada (simulado) — integração real chamaria POST /api/chat com voice:true';
+  });
+
+  // Mic test
+  micTestBtn.addEventListener('click', toggleMicTest);
+
+  // Danger zone
+  clearCacheBtn.addEventListener('click', () => {
+    if (confirm('Remover todos os arquivos de áudio em cache?')) {
+      micTestResult.textContent = '🗑️ Cache limpo (simulado)';
+      micTestResult.className = 'mic-test-result ok';
+    }
+  });
+  resetSettingsBtn.addEventListener('click', () => {
+    if (confirm('Restaurar todas as configurações aos padrões?')) {
+      state = {
+        ttsVoice: 'pt-BR-AntonioNeural',
+        whisperModel: 'base',
+        sttLanguage: 'pt',
+        autoStartBridge: true,
+        saveAudio: true,
+        forceDarkMode: false,
+      };
+      syncUI();
+      saveState();
+      micTestResult.textContent = '✅ Configurações restauradas';
+      micTestResult.className = 'mic-test-result ok';
+    }
+  });
+
+  // Save
+  saveBtn.addEventListener('click', () => {
+    saveState();
+    micTestResult.textContent = '✅ Configurações salvas';
+    micTestResult.className = 'mic-test-result ok';
+    setTimeout(close, 800);
+  });
+}
+
+function close() {
+  stopMicTest();
+  backdrop.style.animation = 'fadeIn 0.2s ease reverse';
+  setTimeout(() => backdrop.remove(), 200);
+}
+
+// ── Mic Test ──
+async function toggleMicTest() {
+  if (micTestBtn.classList.contains('recording')) {
+    stopMicTest();
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+    });
+    audioContext = new AudioContext();
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 256;
+    const source = audioContext.createMediaStreamSource(stream);
+    source.connect(analyser);
+
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+    const chunks = [];
+    mediaRecorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(chunks, { type: 'audio/webm;codecs=opus' });
+      micTestResult.textContent = `🎙️ Gravado ${(blob.size/1024).toFixed(1)} KB — enviaria para STT no bridge real`;
+      micTestResult.className = 'mic-test-result ok';
+      stream.getTracks().forEach(t => t.stop());
+    };
+    mediaRecorder.start(100);
+    micTestBtn.classList.add('recording');
+    micTestBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="16" rx="2"/></svg> Parar teste`;
+    micTestResult.textContent = 'Gravando... fale algo';
+    micTestResult.className = 'mic-test-result';
+    animateMicLevel();
+  } catch (err) {
+    micTestResult.textContent = `❌ Erro: ${err.message}`;
+    micTestResult.className = 'mic-test-result err';
+  }
+}
+
+function stopMicTest() {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+  }
+  if (audioContext) {
+    audioContext.close();
+    audioContext = null;
+  }
+  if (animationFrame) {
+    cancelAnimationFrame(animationFrame);
+    animationFrame = null;
+  }
+  micTestBtn.classList.remove('recording');
+  micTestBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg> Iniciar teste`;
+  micLevelBar.style.width = '0%';
+}
+
+function animateMicLevel() {
+  if (!analyser) return;
+  const data = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(data);
+  // Average of first few bins (low freq = voice)
+  let sum = 0;
+  for (let i = 0; i < 10; i++) sum += data[i];
+  const avg = sum / 10;
+  const percent = Math.min(100, (avg / 128) * 100);
+  micLevelBar.style.width = `${percent}%`;
+  animationFrame = requestAnimationFrame(animateMicLevel);
+}
+
+// ── Boot ──
+init();
+</script>
+</body>
+</html>

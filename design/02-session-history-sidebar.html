@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hermes Voice — Session History Sidebar</title>
+<style>
+:root {
+  --bg: #030712;
+  --fg: #f0f4f8;
+  --muted: #64748b;
+  --accent: #ff8c00;
+  --accent-dim: #cc7000;
+  --card: rgba(15, 23, 42, 0.8);
+  --border: rgba(100, 116, 139, 0.3);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --focus-ring: 0 0 0 3px rgba(255, 140, 0, 0.2);
+  --shadow: 0 12px 32px rgba(0,0,0,0.5);
+  --danger: #ef4444;
+  --success: #22c55e;
+  --sidebar-w: 380px;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f8fafc;
+    --fg: #0f172a;
+    --muted: #64748b;
+    --accent: #ea580c;
+    --accent-dim: #c2410c;
+    --card: rgba(255, 255, 255, 0.9);
+    --border: rgba(15, 23, 42, 0.15);
+  }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; font-family: Georgia, serif; background: var(--bg); color: var(--fg); }
+body { display: flex; min-height: 100vh; }
+
+/* App Shell */
+.app { display: flex; width: 100%; height: 100vh; }
+.main-content { flex: 1; display: flex; flex-direction: column; background: var(--bg); }
+
+/* Header */
+.app-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px;
+  background: var(--card); backdrop-filter: blur(8px);
+  position: sticky; top: 0; z-index: 10;
+}
+.app-header h1 { margin: 0; font-size: 1.1rem; font-weight: 400; letter-spacing: 0.02em; }
+.badge { font-size: 0.65rem; font-family: ui-monospace, monospace; color: var(--accent); background: rgba(196,169,125,0.15); padding: 2px 8px; border-radius: 999px; }
+
+/* Chat Area */
+.chat-area { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; max-width: 720px; margin: 0 auto; width: 100%; }
+.msg { display: flex; flex-direction: column; gap: 4px; animation: fadeIn 0.25s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.msg.user { align-items: flex-end; }
+.msg.agent { align-items: flex-start; }
+.msg .bubble { max-width: 85%; padding: 12px 16px; border-radius: var(--radius); line-height: 1.55; white-space: pre-wrap; word-wrap: break-word; }
+.msg.user .bubble { background: var(--card); border: 1px solid var(--border); border-bottom-right-radius: 4px; }
+.msg.agent .bubble { background: transparent; color: var(--fg); border-bottom-left-radius: 4px; }
+.msg .meta { font-size: 0.7rem; color: var(--muted); margin: 0 4px; font-family: ui-monospace, monospace; }
+.msg.user .meta { text-align: right; }
+.msg .audio-player { margin-top: 8px; width: 100%; }
+
+/* Input Area */
+.input-area {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--card);
+  backdrop-filter: blur(8px);
+  position: sticky; bottom: 0;
+}
+.input-row { display: flex; gap: 10px; align-items: flex-end; max-width: 720px; margin: 0 auto; }
+#msg-input { flex: 1; background: transparent; border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; color: var(--fg); font-family: inherit; font-size: 1rem; resize: none; min-height: 48px; max-height: 160px; line-height: 1.5; }
+#msg-input:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-ring); }
+#msg-input::placeholder { color: var(--muted); }
+.btn {
+  background: var(--accent); color: #0a0a0b; border: none; border-radius: var(--radius); padding: 12px 20px;
+  font-size: 0.95rem; font-weight: 500; cursor: pointer; transition: background 0.15s, transform 0.05s; font-family: inherit;
+}
+.btn:hover:not(:disabled) { background: #d4b88a; }
+.btn:active:not(:disabled) { transform: scale(0.98); }
+.btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-icon { width: 48px; height: 48px; padding: 0; display: flex; align-items: center; justify-content: center; }
+.btn-icon svg { width: 22px; height: 22px; }
+
+/* Sidebar */
+.sidebar {
+  width: var(--sidebar-w);
+  max-width: 100%;
+  border-left: 1px solid var(--border);
+  background: var(--card);
+  backdrop-filter: blur(8px);
+  display: flex; flex-direction: column;
+  position: relative;
+  animation: slideIn 0.3s ease;
+}
+@keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: none; } }
+
+.sidebar-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.sidebar-header h2 { margin: 0; font-size: 0.95rem; font-weight: 500; }
+.sidebar-close { display: none; background: transparent; border: none; color: var(--muted); width: 32px; height: 32px; border-radius: var(--radius-sm); cursor: pointer; }
+.sidebar-close:hover { background: var(--border); color: var(--fg); }
+
+/* Search */
+.sidebar-search { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.search-input { width: 100%; background: transparent; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; color: var(--fg); font-family: inherit; font-size: 0.9rem; }
+.search-input:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-ring); }
+.search-input::placeholder { color: var(--muted); }
+
+/* Session List */
+.session-list { flex: 1; overflow-y: auto; padding: 8px; }
+.session-item {
+  background: transparent; border: none; border-radius: var(--radius-sm);
+  padding: 12px; width: 100%; text-align: left; cursor: pointer;
+  transition: background 0.15s; display: flex; flex-direction: column; gap: 6px;
+}
+.session-item:hover { background: var(--border); }
+.session-item:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.session-item.active { background: rgba(196,169,125,0.1); border: 1px solid var(--accent); }
+.session-item-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.session-title { font-weight: 500; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.session-time { font-size: 0.7rem; color: var(--muted); font-family: ui-monospace, monospace; white-space: nowrap; flex-shrink: 0; }
+.session-preview { font-size: 0.8rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.session-meta { display: flex; align-items: center; gap: 8px; font-size: 0.65rem; color: var(--muted); font-family: ui-monospace, monospace; }
+.session-actions { display: flex; gap: 4px; margin-top: 4px; opacity: 0; transition: opacity 0.15s; }
+.session-item:hover .session-actions { opacity: 1; }
+.session-action-btn {
+  background: transparent; border: none; color: var(--muted); padding: 6px 8px;
+  border-radius: 6px; cursor: pointer; font-size: 0.7rem; font-family: inherit;
+  transition: color 0.15s, background 0.15s;
+}
+.session-action-btn:hover { color: var(--fg); background: var(--border); }
+.session-action-btn.delete:hover { color: var(--danger); background: rgba(192,57,43,0.1); }
+
+/* Empty State */
+.empty-state { padding: 32px 16px; text-align: center; color: var(--muted); }
+.empty-state svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.5; }
+.empty-state p { margin: 0 0 8px; font-size: 0.9rem; }
+.empty-state small { font-size: 0.75rem; }
+
+/* Footer */
+.sidebar-footer { padding: 12px 16px; border-top: 1px solid var(--border); }
+.new-session-btn { width: 100%; }
+
+/* Confirm Delete Modal */
+.confirm-modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
+  display: none; align-items: center; justify-content: center; z-index: 2000;
+}
+.confirm-modal-backdrop.open { display: flex; animation: fadeIn 0.2s ease; }
+.confirm-modal {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); width: 100%; max-width: 400px; padding: 24px;
+  animation: slideUp 0.25s ease;
+}
+.confirm-modal h3 { margin: 0 0 8px; font-size: 1rem; }
+.confirm-modal p { margin: 0 0 20px; color: var(--muted); font-size: 0.9rem; }
+.confirm-modal-actions { display: flex; justify-content: flex-end; gap: 12px; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sidebar { position: fixed; right: 0; top: 0; bottom: 0; z-index: 100; transform: translateX(100%); transition: transform 0.3s ease; box-shadow: var(--shadow); }
+  .sidebar.open { transform: translateX(0); }
+  .sidebar-close { display: flex; align-items: center; justify-content: center; }
+  .sidebar-toggle { display: flex; }
+  .app { flex-direction: column; }
+}
+@media (min-width: 769px) {
+  .sidebar-toggle { display: none; }
+}
+
+/* Mobile header toggle */
+.sidebar-toggle { background: transparent; border: none; color: var(--fg); padding: 8px; border-radius: var(--radius-sm); cursor: pointer; display: none; }
+.sidebar-toggle:hover { background: var(--card); }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Main Content -->
+  <div class="main-content">
+    <header class="app-header">
+      <h1>Hermes</h1>
+      <span class="badge" id="sessionBadge">nova</span>
+      <button class="sidebar-toggle" id="sidebarToggle" aria-label="Histórico de sessões" aria-expanded="false">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="12" x2="23" y2="12"></line><line x1="1" y1="6" x2="23" y2="6"></line><line x1="1" y1="18" x2="23" y2="18"></line></svg>
+      </button>
+    </header>
+    <main class="chat-area" id="chatArea" aria-live="polite">
+      <!-- Messages injected here -->
+    </main>
+    <footer class="input-area">
+      <div class="input-row">
+        <textarea id="msg-input" placeholder="Digite ou segure 🎤 para falar..." rows="1" aria-label="Mensagem"></textarea>
+        <button class="btn btn-icon" id="voiceBtn" title="Segure para gravar" aria-label="Gravar áudio">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+        </button>
+        <button class="btn" id="sendBtn">Enviar</button>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Sidebar: Session History -->
+  <aside class="sidebar" id="sidebar" aria-label="Histórico de sessões">
+    <div class="sidebar-header">
+      <h2>Histórico</h2>
+      <button class="sidebar-close" id="sidebarClose" aria-label="Fechar histórico">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+    <div class="sidebar-search">
+      <input type="search" class="search-input" id="searchInput" placeholder="Buscar sessões..." aria-label="Buscar sessões">
+    </div>
+    <div class="session-list" id="sessionList" role="listbox" aria-label="Lista de sessões">
+      <!-- Items injected here -->
+    </div>
+    <div class="sidebar-footer">
+      <button class="btn new-session-btn" id="newSessionBtn">Nova sessão</button>
+    </div>
+  </aside>
+
+  <!-- Mobile Overlay -->
+  <div class="sidebar-backdrop" id="sidebarBackdrop" aria-hidden="true"></div>
+
+  <!-- Confirm Delete Modal -->
+  <div class="confirm-modal-backdrop" id="deleteModal" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+    <div class="confirm-modal">
+      <h3 id="deleteModalTitle">Excluir sessão?</h3>
+      <p id="deleteModalText">Esta ação não pode ser desfeita. A sessão <strong id="deleteSessionName"></strong> será removida permanentemente.</p>
+      <div class="confirm-modal-actions">
+        <button class="btn btn-secondary" id="deleteCancelBtn">Cancelar</button>
+        <button class="btn btn-danger" id="deleteConfirmBtn">Excluir</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Mock Session Data ──
+const MOCK_SESSIONS = [
+  { id: 'sid_20260726_001', title: 'Refatoração do bridge-server.py', preview: 'Usuário: Preciso separar STT/TTS em módulos...', messages: 12, updatedAt: '2026-07-26T14:30:00Z', messageCount: 12 },
+  { id: 'sid_20260725_042', title: 'Planejamento do Hermes Voice', preview: 'Usuário: Vamos mapear personas e JTBD...', updatedAt: '2026-07-25T19:45:00Z', messageCount: 8 },
+  { id: 'sid_20260724_018', title: 'Debug do Tauri build', preview: 'Usuário: O cargo build falha com linker error...', updatedAt: '2026-07-24T11:20:00Z', messageCount: 15 },
+  { id: 'sid_20260723_009', title: 'Teste de voz com Whisper', preview: 'Usuário: O STT tá transcrevendo errado em pt-BR', updatedAt: '2026-07-23T08:10:00Z', messageCount: 6 },
+  { id: 'sid_20260722_033', title: 'Integração com OpenRouter', preview: 'Usuário: Como trocar modelo no hermes chat?', updatedAt: '2026-07-22T16:55:00Z', messageCount: 4 },
+  { id: 'sid_20260721_007', title: 'Onboarding first-run', preview: 'Usuário: Quero tela de boas-vindas com teste de mic', updatedAt: '2026-07-21T10:00:00Z', messageCount: 9 },
+  { id: 'sid_20260720_012', title: 'Settings modal design', preview: 'Usuário: Preciso de modal pra trocar voz TTS', updatedAt: '2026-07-20T22:30:00Z', messageCount: 11 },
+];
+
+// ── State ──
+let sessions = [...MOCK_SESSIONS];
+let currentSessionId = null;
+let searchQuery = '';
+let sessionToDelete = null;
+
+// ── DOM ──
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
+
+const chatArea = $('#chatArea');
+const sessionBadge = $('#sessionBadge');
+const msgInput = $('#msg-input');
+const sendBtn = $('#sendBtn');
+const voiceBtn = $('#voiceBtn');
+
+const sidebar = $('#sidebar');
+const sidebarToggle = $('#sidebarToggle');
+const sidebarClose = $('#sidebarClose');
+const sidebarBackdrop = $('#sidebarBackdrop');
+const searchInput = $('#searchInput');
+const sessionList = $('#sessionList');
+const newSessionBtn = $('#newSessionBtn');
+
+const deleteModal = $('#deleteModal');
+const deleteSessionName = $('#deleteSessionName');
+const deleteCancelBtn = $('#deleteCancelBtn');
+const deleteConfirmBtn = $('#deleteConfirmBtn');
+
+// ── Init ──
+function init() {
+  renderSessionList();
+  renderChat();
+  bindEvents();
+  updateSessionBadge();
+}
+
+function bindEvents() {
+  // Sidebar toggle (mobile)
+  sidebarToggle.addEventListener('click', () => toggleSidebar(true));
+  sidebarClose.addEventListener('click', () => toggleSidebar(false));
+  sidebarBackdrop.addEventListener('click', () => toggleSidebar(false));
+
+  // Search
+  searchInput.addEventListener('input', (e) => {
+    searchQuery = e.target.value.toLowerCase();
+    renderSessionList();
+  });
+
+  // New session
+  newSessionBtn.addEventListener('click', createNewSession);
+
+  // Chat input
+  sendBtn.addEventListener('click', sendMessage);
+  msgInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
+  msgInput.addEventListener('input', () => {
+    msgInput.style.height = 'auto';
+    msgInput.style.height = Math.min(msgInput.scrollHeight, 160) + 'px';
+  });
+
+  // Delete modal
+  deleteCancelBtn.addEventListener('click', closeDeleteModal);
+  deleteConfirmBtn.addEventListener('click', confirmDelete);
+  deleteModal.addEventListener('click', (e) => { if (e.target === deleteModal) closeDeleteModal(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeDeleteModal(); toggleSidebar(false); } });
+}
+
+function toggleSidebar(open) {
+  sidebar.classList.toggle('open', open);
+  sidebarBackdrop.classList.toggle('open', open);
+  sidebarToggle.setAttribute('aria-expanded', open);
+  sidebarBackdrop.setAttribute('aria-hidden', !open);
+}
+
+// ── Sessions ──
+function formatRelativeTime(iso) {
+  const date = new Date(iso);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'agora';
+  if (diffMins < 60) return `${diffMins}min`;
+  if (diffHours < 24) return `${diffHours}h`;
+  if (diffDays < 7) return `${diffDays}d`;
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
+function filterSessions() {
+  if (!searchQuery) return sessions;
+  return sessions.filter(s =>
+    s.title.toLowerCase().includes(searchQuery) ||
+    s.preview.toLowerCase().includes(searchQuery) ||
+    s.id.toLowerCase().includes(searchQuery)
+  );
+}
+
+function renderSessionList() {
+  const filtered = filterSessions();
+  if (filtered.length === 0) {
+    sessionList.innerHTML = `
+      <div class="empty-state" role="status">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/><line x1="7" y1="7" x2="21" y2="21"/></svg>
+        <p>${searchQuery ? 'Nenhuma sessão encontrada' : 'Nenhuma sessão ainda'}</p>
+        <small>${searchQuery ? 'Tente outro termo de busca' : 'Clique em "Nova sessão" para começar'}</small>
+      </div>
+    `;
+    return;
+  }
+  sessionList.innerHTML = filtered.map(s => `
+    <button class="session-item ${s.id === currentSessionId ? 'active' : ''}" data-id="${s.id}" role="option" aria-selected="${s.id === currentSessionId}" aria-label="${s.title}, ${formatRelativeTime(s.updatedAt)}, ${s.messageCount} mensagens">
+      <div class="session-item-header">
+        <span class="session-title" title="${s.title}">${escapeHtml(s.title)}</span>
+        <span class="session-time">${formatRelativeTime(s.updatedAt)}</span>
+      </div>
+      <div class="session-preview" title="${s.preview}">${escapeHtml(s.preview)}</div>
+      <div class="session-meta">
+        <span>${s.messageCount} msgs</span>
+        <span>•</span>
+        <span>${s.id.slice(0, 12)}</span>
+      </div>
+      <div class="session-actions">
+        <button class="session-action-btn resume-btn" data-id="${s.id}" aria-label="Retomar sessão ${escapeHtml(s.title)}">Retomar</button>
+        <button class="session-action-btn delete-btn" data-id="${s.id}" aria-label="Excluir sessão ${escapeHtml(s.title)}">Excluir</button>
+      </div>
+    </button>
+  `).join('');
+
+  // Bind session item clicks
+  $$('.session-item').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      // Don't trigger if clicking action buttons
+      if (e.target.closest('.session-action-btn')) return;
+      const id = btn.dataset.id;
+      resumeSession(id);
+    });
+  });
+
+  // Bind action buttons
+  $$('.resume-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => { e.stopPropagation(); resumeSession(btn.dataset.id); });
+  });
+  $$('.delete-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => { e.stopPropagation(); openDeleteModal(btn.dataset.id); });
+  });
+}
+
+function escapeHtml(str) {
+  return str.replace(/[&<>"']/g, c => ({'&':'&','<':'<','>':'>','"':'"',"'":'''}[c]));
+}
+
+function createNewSession() {
+  const id = `sid_${new Date().toISOString().slice(0,10).replace(/-/g,'')}_${String(sessions.length+1).padStart(3,'0')}`;
+  const session = {
+    id, title: 'Nova conversa', preview: '', messages: [],
+    updatedAt: new Date().toISOString(), messageCount: 0
+  };
+  sessions.unshift(session);
+  currentSessionId = id;
+  renderSessionList();
+  renderChat();
+  updateSessionBadge();
+  toggleSidebar(false);
+  msgInput.focus();
+}
+
+function resumeSession(id) {
+  currentSessionId = id;
+  renderSessionList();
+  renderChat();
+  updateSessionBadge();
+  toggleSidebar(false);
+  msgInput.focus();
+}
+
+function openDeleteModal(id) {
+  const session = sessions.find(s => s.id === id);
+  if (!session) return;
+  sessionToDelete = id;
+  deleteSessionName.textContent = session.title;
+  deleteModal.classList.add('open');
+}
+
+function closeDeleteModal() {
+  sessionToDelete = null;
+  deleteModal.classList.remove('open');
+}
+
+function confirmDelete() {
+  if (!sessionToDelete) return;
+  sessions = sessions.filter(s => s.id !== sessionToDelete);
+  if (currentSessionId === sessionToDelete) {
+    currentSessionId = sessions[0]?.id || null;
+  }
+  renderSessionList();
+  renderChat();
+  updateSessionBadge();
+  closeDeleteModal();
+}
+
+// ── Chat Rendering ──
+function renderChat() {
+  if (!currentSessionId) {
+    chatArea.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted);text-align:center;padding:32px;">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.5;margin-bottom:16px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M15 7h1a2 2 0 0 1 2 2v1"/></svg>
+        <p style="margin:0 0 8px;font-size:1.1rem;">Selecione ou crie uma sessão</p>
+        <small>Use o painel lateral →</small>
+      </div>
+    `;
+    return;
+  }
+  const session = sessions.find(s => s.id === currentSessionId);
+  if (!session) { currentSessionId = null; renderChat(); return; }
+
+  // Mock messages for demo
+  const mockMessages = generateMockMessages(session);
+  chatArea.innerHTML = mockMessages.map((m, i) => `
+    <div class="msg ${m.role}">
+      <div class="bubble">${escapeHtml(m.content)}</div>
+      <div class="meta">${m.role === 'user' ? 'Você' : 'Hermes'} • ${formatTime(m.time)}</div>
+      ${m.audio ? `<audio class="audio-player" controls src="${m.audio}"></audio>` : ''}
+    </div>
+  `).join('');
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+function generateMockMessages(session) {
+  const baseTime = new Date(session.updatedAt).getTime();
+  const msgs = [];
+  for (let i = 0; i < Math.min(session.messageCount, 8); i++) {
+    const isUser = i % 2 === 0;
+    msgs.push({
+      role: isUser ? 'user' : 'agent',
+      content: isUser ? `Mensagem ${i/2+1} do usuário sobre ${session.title.toLowerCase()}` : `Resposta do Hermes para a mensagem ${i/2+1}...`,
+      time: new Date(baseTime - (session.messageCount - i) * 300000),
+      audio: isUser ? null : (i === 1 ? 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' : null)
+    });
+  }
+  return msgs;
+}
+
+function formatTime(date) {
+  return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function sendMessage() {
+  const text = msgInput.value.trim();
+  if (!text) return;
+  if (!currentSessionId) { createNewSession(); return; }
+
+  const session = sessions.find(s => s.id === currentSessionId);
+  if (session) {
+    session.messageCount++;
+    session.updatedAt = new Date().toISOString();
+    session.preview = text.slice(0, 60);
+    if (session.title === 'Nova conversa') session.title = text.slice(0, 40);
+  }
+
+  // Add user message to chat
+  const userMsg = document.createElement('div');
+  userMsg.className = 'msg user';
+  userMsg.innerHTML = `<div class="bubble">${escapeHtml(text)}</div><div class="meta">Você • ${formatTime(new Date())}</div>`;
+  chatArea.appendChild(userMsg);
+
+  // Simulate agent response
+  msgInput.value = '';
+  msgInput.style.height = 'auto';
+  sendBtn.disabled = true;
+
+  setTimeout(() => {
+    const agentMsg = document.createElement('div');
+    agentMsg.className = 'msg agent';
+    agentMsg.innerHTML = `<div class="bubble">Resposta simulada do Hermes para: "${text}"</div><div class="meta">Hermes • ${formatTime(new Date())}</div><audio class="audio-player" controls src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"></audio>`;
+    chatArea.appendChild(agentMsg);
+    chatArea.scrollTop = chatArea.scrollHeight;
+    sendBtn.disabled = false;
+    renderSessionList(); // Update preview/count
+  }, 600);
+}
+
+function updateSessionBadge() {
+  if (currentSessionId) {
+    const session = sessions.find(s => s.id === currentSessionId);
+    sessionBadge.textContent = session ? session.id.slice(0, 8) : '—';
+  } else {
+    sessionBadge.textContent = 'nova';
+  }
+}
+
+// ── Boot ──
+init();
+</script>
+</body>
+</html>
